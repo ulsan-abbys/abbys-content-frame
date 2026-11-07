@@ -20,10 +20,10 @@ N1 이슈 수집
 
 ## 5분 시작
 
-Python 3.11 이상을 준비하고 Windows PowerShell에서 실행합니다. 원격 주소는 운영자가 저장소를 공개한 뒤 알려주는 주소로 바꿉니다.
+Python 3.11 이상을 준비하고 Windows PowerShell에서 실행합니다. `ORG_NAME`은 운영자가 알려준 GitHub 소유자 이름으로 바꿉니다.
 
 ```powershell
-git clone <운영자가-알려준-저장소-주소> avis-content-frame
+git clone https://github.com/ORG_NAME/avis-content-frame
 cd avis-content-frame
 uv venv; uv pip install -e .[dev]
 .\.venv\Scripts\Activate.ps1
@@ -61,6 +61,16 @@ frame check tests\fixtures\bad.md
 ```
 
 두 번째 명령은 의도적으로 실패합니다. 실패 종료 코드는 1입니다. 본문은 `## 출처` 앞부분이며 공백을 제외한 글자 수, 본문의 `## ` 소제목 수, 출처 구역에서 웹 주소가 있는 줄 수, 경험 슬롯 수를 검사합니다. 출처 주소 개수 검사는 링크 유효성이나 주장 정확성을 보장하지 않습니다. 경험 슬롯은 최종 공개 전에 사람이 실제 내용으로 채우고 검수합니다.
+
+## AI에게 맡기기 / 실습 / 새 모듈 만들기
+
+| 하고 싶은 일 | 안내 |
+|---|---|
+| AI에게 설치·분야 변경·초안 점검 맡기기 | [AI에게 맡기기](docs/AI에게_맡기기.md) |
+| 모임에서 30분 동안 직접 해 보기 | [실습 30분](docs/실습_30분.md) |
+| 규칙팩·어댑터·노드 확장하기 | [새 모듈 만들기](docs/새_모듈_만들기.md) |
+
+Claude Code용 스킬은 [frame-customize](.claude/skills/frame-customize/SKILL.md)와 [new-module](.claude/skills/new-module/SKILL.md)입니다. 각각 분야 변경과 모듈 추가 절차를 담고 있습니다. Codex에는 해당 파일을 읽고 따르도록 요청할 수 있습니다.
 
 ## 구조
 
