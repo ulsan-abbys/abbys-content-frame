@@ -1,4 +1,4 @@
-# avis-content-frame
+# abbys-content-frame
 
 울산 지역 AI 스터디가 블로그 초안과 숏폼 영상 작업을 함께 개선하는 작은 공통 틀입니다. 각자 설정과 어댑터를 바꾸고, 검증한 개선을 PR로 나눕니다.
 
@@ -23,8 +23,8 @@ N1 이슈 수집
 Python 3.11 이상을 준비하고 Windows PowerShell에서 실행합니다. `ulsan-abbys`은 운영자가 알려준 GitHub 소유자 이름으로 바꿉니다.
 
 ```powershell
-git clone https://github.com/ulsan-abbys/avis-content-frame
-cd avis-content-frame
+git clone https://github.com/ulsan-abbys/abbys-content-frame
+cd abbys-content-frame
 uv venv; uv pip install -e .[dev]
 .\.venv\Scripts\Activate.ps1
 copy config\profile.example.toml config\profile.toml
@@ -75,7 +75,7 @@ Claude Code용 스킬은 [frame-customize](.claude/skills/frame-customize/SKILL.
 ## 구조
 
 ```text
-avis-content-frame/
+abbys-content-frame/
   config/
     profile.example.toml      화자·말투·분량·영상 기준
     rules/                    업종별 규칙 팩
@@ -153,4 +153,4 @@ python -m pytest -q
 - 키·비밀번호·토큰 커밋
 - 기계 점검 통과를 사실·의료·법률 검수 완료로 간주
 
-라이선스는 MIT이며 저작권자는 Ulsan Avis AI contributors입니다.
+라이선스는 MIT이며 저작권자는 Ulsan Abbys AI contributors입니다.

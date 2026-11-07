@@ -3,7 +3,7 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "avis-content-frame"
+name = "abbys-content-frame"
 version = "0.1.0"
 description = "지역 AI 스터디의 블로그 초안과 쇼츠 영상 작업 틀"
 readme = "README.md"
