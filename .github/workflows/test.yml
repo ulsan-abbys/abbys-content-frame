@@ -1,0 +1,15 @@
+# PR마다 테스트를 돌린다 — 누가 고쳐도 core 규칙과 점검기가 깨지지 않게 하는 저장소 수준의 하네스
+name: test
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  pytest:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run --extra dev python -m pytest -q
+        env:
+          PYTHONIOENCODING: utf-8
