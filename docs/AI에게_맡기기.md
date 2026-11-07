@@ -13,7 +13,7 @@ README.md와 AGENTS.md를 먼저 읽어 줘. 기존 변경을 보존해 줘.
 ## (a) 설치
 
 ```text
-README를 읽고 이 저장소를 내 PC(Windows)에 설치하고 `frame graph`, `frame check examples/clinic/초안/01_겨울철-가려움-보습.md`가 도는지 확인해 줘. 각 단계 결과를 보여 줘.
+README를 읽고 이 저장소를 내 PC(Windows)에 설치하고 `uv run frame graph`, `uv run frame check examples/clinic/초안/01_겨울철-가려움-보습.md`가 도는지 확인해 줘. 각 단계 결과를 보여 줘.
 기존 config/profile.toml이 있으면 덮어쓰지 마.
 ```
 
@@ -25,7 +25,7 @@ README를 읽고 이 저장소를 내 PC(Windows)에 설치하고 `frame graph`,
 PowerShell 활성화가 막히면 `.\.venv\Scripts\python.exe -m frame graph`처럼 실행합니다.
 작업 폴더는 저장소 루트여야 합니다.
 현재 clinic 예시는 본문 923자입니다. 기본 기준 1200~1800자에서는 분량 오류로 실패합니다.
-이 결과는 설치 실패와 구분합니다. 통과 예시는 `frame check tests/fixtures/good.md`로 확인합니다.
+이 결과는 설치 실패와 구분합니다. 통과 예시는 `uv run frame check tests/fixtures/good.md`로 확인합니다.
 
 ## (b) 내 분야로 바꾸기
 
@@ -43,7 +43,7 @@ PowerShell 활성화가 막히면 `.\.venv\Scripts\python.exe -m frame graph`처
 | 예시 초안 점검 | 오류·경고, 미확인 근거, 사람이 채울 경험 슬롯 |
 
 팩 이름은 영문·숫자·밑줄·하이픈만 허용합니다. 한글 파일명은 로더가 거부합니다.
-`persona`와 `style`은 AI가 읽고 적용합니다. 현재 `frame write`가 자동으로 전달하지 않습니다.
+`persona`와 `style`은 AI가 읽고 적용합니다. 현재 `uv run frame write`가 자동으로 전달하지 않습니다.
 
 ## (c) 서브에이전트로 나눠 맡기기
 
@@ -69,7 +69,7 @@ PowerShell 활성화가 막히면 `.\.venv\Scripts\python.exe -m frame graph`처
 ## (d) 초안 → 점검 → 고치기 루프
 
 ```text
-examples처럼 초안을 쓰고 `frame check`가 통과할 때까지 최대 2번 고쳐. 그래도 실패하면 멈추고 이유를 보여 줘.
+examples처럼 초안을 쓰고 `uv run frame check`가 통과할 때까지 최대 2번 고쳐. 그래도 실패하면 멈추고 이유를 보여 줘.
 내 주제와 config/profile.toml을 사용하고 drafts/01_내-주제.md에 저장해 줘.
 처음 점검한 뒤 수정은 최대 2회, 점검은 총 최대 3회로 제한해 줘.
 실행마다 명령·종료 코드·오류·경고·수정 내용을 표로 보여 줘.
@@ -101,8 +101,8 @@ CLI는 재작성을 자동 실행하지 않습니다. 이 반복은 AI가 관리
 승인한 경우에만 다음 예시를 실행합니다. 연습 로그는 따로 둡니다.
 
 ```powershell
-frame gate record --gate G2 --decision approved --run-id "연습-001" --note "출처와 경험을 직접 확인" --log logs/practice-gates.jsonl
-frame gate status --log logs/practice-gates.jsonl
+uv run frame gate record --gate G2 --decision approved --run-id "연습-001" --note "출처와 경험을 직접 확인" --log logs/practice-gates.jsonl
+uv run frame gate status --log logs/practice-gates.jsonl
 ```
 
 ```text

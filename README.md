@@ -20,44 +20,29 @@ N1 이슈 수집
 
 ## 5분 시작
 
-Python 3.11 이상을 준비하고 Windows PowerShell에서 실행합니다. `ulsan-abbys`은 운영자가 알려준 GitHub 소유자 이름으로 바꿉니다.
+필요한 것은 Git과 [uv](https://docs.astral.sh/uv/)뿐입니다. 파이썬은 uv가 알아서 받습니다. 아무것도 없는 노트북이라면 [abbys-ai-setup의 새 노트북 세팅](https://github.com/ulsan-abbys/abbys-ai-setup/blob/main/docs/새_노트북_세팅.md)부터 따라 하세요.
 
 ```powershell
 git clone https://github.com/ulsan-abbys/abbys-content-frame
 cd abbys-content-frame
-uv venv; uv pip install -e .[dev]
-.\.venv\Scripts\Activate.ps1
-copy config\profile.example.toml config\profile.toml
-frame gate status
-frame graph
-python -m pytest -q
+uv run frame graph
+uv run frame check "examples\clinic\초안\01_겨울철-가려움-보습.md"
+uv run frame gate status
 ```
 
-`uv` 없이 표준 `venv`와 `pip`를 사용해도 됩니다.
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -e ".[dev]"
-copy config\profile.example.toml config\profile.toml
-```
-
-활성화가 제한된 환경에서는 `.\.venv\Scripts\python.exe -m frame`으로 실행할 수 있습니다. 기본 설정 경로는 현재 작업 폴더의 `config/`이므로 저장소 루트에서 실행합니다. `profile.toml`이 없으면 `profile.example.toml`을 사용합니다.
+- 명령은 모두 **저장소 맨 위 폴더에서** `uv run frame ...`으로 실행합니다. 가상환경을 켤(Activate) 필요가 없습니다.
+- 예시 초안의 `frame check`는 **분량 미달 1건**이 나오면 정상입니다 (일부러 짧게 둔 예시).
+- 내 설정을 쓰려면 `copy config\profile.example.toml config\profile.toml` 후 고칩니다. 없으면 example을 씁니다.
+- Git이 없으면 GitHub 페이지의 **Code → Download ZIP**으로 받아 압축을 풀어도 됩니다.
+- 테스트: `uv run --extra dev python -m pytest -q`
 
 examples/clinic/ — 시연 예시: 가상의 동네 피부과 원장 블로그 (규칙 파일 3개 + 초안 + 쇼츠 대본)
 
-운영자가 예시 파일을 추가한 뒤에는 다음 명령으로 점검합니다.
+테스트용 초안으로도 확인할 수 있습니다.
 
 ```powershell
-frame check examples\clinic\초안\01_겨울철-가려움-보습.md
-frame gate status
-```
-
-아직 예시가 없으면 저장소에 포함된 테스트용 초안으로 바로 확인합니다.
-
-```powershell
-frame check tests\fixtures\good.md
-frame check tests\fixtures\bad.md
+uv run frame check tests\fixtures\good.md
+uv run frame check tests\fixtures\bad.md
 ```
 
 두 번째 명령은 의도적으로 실패합니다. 실패 종료 코드는 1입니다. 본문은 `## 출처` 앞부분이며 공백을 제외한 글자 수, 본문의 `## ` 소제목 수, 출처 구역에서 웹 주소가 있는 줄 수, 경험 슬롯 수를 검사합니다. 출처 주소 개수 검사는 링크 유효성이나 주장 정확성을 보장하지 않습니다. 경험 슬롯은 최종 공개 전에 사람이 실제 내용으로 채우고 검수합니다.
@@ -107,9 +92,9 @@ abbys-content-frame/
 외부 도구 호출 예시는 다음과 같습니다. Claude CLI와 MoneyPrinterTurbo는 별도 설치가 필요하며 이 저장소의 Python 의존성에 포함하지 않습니다.
 
 ```powershell
-frame write .
+uv run frame write .
 $env:MPT_DIR = "C:\도구\MoneyPrinterTurbo"
-frame render .\대본.txt --out .\출력
+uv run frame render .\대본.txt --out .\출력
 ```
 
 `frame write`는 지정한 작업 폴더에서 Claude CLI에 `STATE.md 보고 지금 하는 일을 이어서 해줘.`를 전달합니다. Claude는 `acceptEdits` 모드로 실행되므로 해당 폴더의 파일을 수정할 수 있습니다. 영상 렌더링용 로컬 소재·음성·글꼴은 `MoneyPrinterTurboRenderer` 어댑터 설정으로 교체합니다.
@@ -128,9 +113,9 @@ frame render .\대본.txt --out .\출력
 G1 주제 승인과 G4 대본 낭독은 L0에서 시작해 최대 L2까지, G2 경험·사실 검수는 최대 L1까지 올라갑니다. G3 게시 클릭과 G5 업로드 클릭은 `HUMAN_ONLY`로 고정합니다. 현재 단계 계산과 기록은 검토를 돕는 도구이며 실제 게시·업로드를 실행하지 않습니다.
 
 ```powershell
-frame gate record --gate G2 --decision approved --run-id "연습-001" --note "출처와 경험을 직접 확인"
-frame gate record --gate G2 --decision edited --missed-by-machine --note "기계가 놓친 사실 오류를 수정"
-frame gate status
+uv run frame gate record --gate G2 --decision approved --run-id "연습-001" --note "출처와 경험을 직접 확인"
+uv run frame gate record --gate G2 --decision edited --missed-by-machine --note "기계가 놓친 사실 오류를 수정"
+uv run frame gate status
 ```
 
 관문 로그 기본 위치는 `logs/gates.jsonl`입니다. 로그에는 실명·환자 정보·비밀을 적지 않습니다. `--log` 옵션으로 연습용 로그를 분리할 수 있습니다. `frame gate record --help`와 `frame gate status --help`에서 사용 위치를 확인합니다.
