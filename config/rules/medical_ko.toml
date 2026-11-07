@@ -1,0 +1,78 @@
+# 모임 검토를 돕는 보수적인 예시 규칙입니다. 법률 판단이나 심의 통과를 보장하지 않습니다.
+# ref는 검토를 시작할 조문 힌트이며 개별 표현과 조문이 일대일로 대응한다는 뜻이 아닙니다.
+[[rule]]
+id = "medical.cure"
+pattern = '완치'
+severity = "error"
+reason = "치료 결과를 단정하는 표현인지 사람이 확인해 주세요."
+ref = "의료법 제56조 제2항 제3호"
+
+[[rule]]
+id = "medical.guarantee"
+pattern = '100\s*%'
+severity = "error"
+reason = "효과나 안전성을 보장하는 수치 표현인지 확인해 주세요."
+ref = "의료법 제56조 제2항 제3호"
+
+[[rule]]
+id = "medical.best"
+pattern = '최고의?'
+severity = "error"
+reason = "객관적 근거 없이 우월성을 강조하는 표현인지 확인해 주세요."
+ref = "의료법 제56조 제2항 제8호"
+
+[[rule]]
+id = "medical.side_effects"
+pattern = '부작용\s*(없|0)'
+severity = "error"
+reason = "부작용이 없다는 단정을 삭제하고 정보의 한계를 검토해 주세요."
+ref = "의료법 제56조 제2항 제3호"
+
+[[rule]]
+id = "medical.testimonial"
+pattern = '(치료|시술)\s*후기'
+severity = "error"
+reason = "치료 경험담이 효과를 오인하게 하는지 검토해 주세요."
+ref = "의료법 제56조 제2항 제2호"
+
+[[rule]]
+id = "medical.before_after"
+pattern = '전후\s*사진'
+severity = "error"
+reason = "사진 비교가 결과를 오인하게 하는지 검토해 주세요."
+ref = "의료법 제56조 제2항 제2호/제3호"
+
+[[rule]]
+id = "medical.discount"
+pattern = '할인'
+severity = "error"
+reason = "정보 글에 진료비 할인 유도 문구가 들어 있는지 확인해 주세요."
+ref = "의료법 제56조 제2항 제13호"
+
+[[rule]]
+id = "medical.event"
+pattern = '이벤트'
+severity = "error"
+reason = "정보 글의 목적과 무관한 판촉 문구인지 확인해 주세요."
+ref = "의료법 제56조 제2항 제13호"
+
+[[rule]]
+id = "medical.booking"
+pattern = '예약\s*문의'
+severity = "error"
+reason = "독자의 예약을 유도하는 문구를 정보 글에서 분리해 주세요."
+ref = "의료법 제56조 제2항 제13호"
+
+[[rule]]
+id = "medical.price"
+pattern = '가격'
+severity = "error"
+reason = "진료비 중심의 홍보로 바뀌지 않았는지 검토해 주세요."
+ref = "의료법 제56조 제2항 제13호"
+
+[[rule]]
+id = "medical.comparison"
+pattern = '(다른|타)\s*(병원|의원).{0,10}(보다|비해)'
+severity = "error"
+reason = "다른 의료기관과 비교하는 표현을 검토해 주세요."
+ref = "의료법 제56조 제2항 제3호/제8호"

@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+logs/
+*.mp4
+*.mp3
+.env
+secrets*
+.pytest_cache/
+*.egg-info/
+build/
+dist/

@@ -1,0 +1,158 @@
+# 자동 처리 후보 노드와 사람 관문을 설명하는 설계도입니다. 전체 실행 엔진은 아직 없습니다.
+
+[[nodes]]
+id = "N1"
+name = "이슈 수집"
+mode = "auto"
+
+[[nodes]]
+id = "N2"
+name = "검색 수요"
+mode = "auto"
+
+[[nodes]]
+id = "N3"
+name = "주제 후보"
+mode = "auto"
+
+[[nodes]]
+id = "N4"
+name = "리서치·출처"
+mode = "auto"
+
+[[nodes]]
+id = "N5"
+name = "초안"
+mode = "auto"
+
+[[nodes]]
+id = "N6"
+name = "기계 점검"
+mode = "auto"
+
+[[nodes]]
+id = "N7"
+name = "서식·이미지"
+mode = "auto"
+
+[[nodes]]
+id = "N8"
+name = "게시 준비"
+mode = "auto"
+
+[[nodes]]
+id = "V1"
+name = "대본 추출"
+mode = "auto"
+
+[[nodes]]
+id = "V2"
+name = "렌더링"
+mode = "auto"
+
+[[nodes]]
+id = "V3"
+name = "영상 점검"
+mode = "auto"
+
+[[edges]]
+source = "N1"
+target = "N2"
+
+[[edges]]
+source = "N2"
+target = "N3"
+
+[[edges]]
+source = "N3"
+target = "G1"
+
+[[edges]]
+source = "G1"
+target = "N4"
+
+[[edges]]
+source = "N4"
+target = "N5"
+
+[[edges]]
+source = "N5"
+target = "N6"
+
+[[edges]]
+source = "N6"
+target = "G2"
+condition = "pass"
+
+[[edges]]
+source = "G2"
+target = "N7"
+
+[[edges]]
+source = "N7"
+target = "N8"
+
+[[edges]]
+source = "N8"
+target = "G3"
+
+[[edges]]
+source = "N6"
+target = "N5"
+condition = "fail"
+max_loops = 2
+
+[[edges]]
+source = "G2"
+target = "V1"
+
+[[edges]]
+source = "V1"
+target = "G4"
+
+[[edges]]
+source = "G4"
+target = "V2"
+
+[[edges]]
+source = "V2"
+target = "V3"
+
+[[edges]]
+source = "V3"
+target = "G5"
+
+[[gates]]
+id = "G1"
+name = "주제 승인"
+start = "L0"
+max = "L2"
+why = "생활 정보라는 목적과 독자의 상황에 맞는 주제인지 확인합니다."
+
+[[gates]]
+id = "G2"
+name = "경험·사실 검수"
+start = "L0"
+max = "L1"
+why = "개인 경험과 출처의 의미는 기계만으로 확인할 수 없어 정기적인 사람 검수가 필요합니다."
+
+[[gates]]
+id = "G3"
+name = "게시 클릭"
+start = "HUMAN_ONLY"
+max = "HUMAN_ONLY"
+why = "외부 공개의 최종 책임은 사람이 직접 확인하고 게시 클릭으로 결정합니다."
+
+[[gates]]
+id = "G4"
+name = "대본 낭독"
+start = "L0"
+max = "L2"
+why = "직접 읽어 뜻과 발음, 호흡을 확인한 경험을 쌓습니다."
+
+[[gates]]
+id = "G5"
+name = "업로드 클릭"
+start = "HUMAN_ONLY"
+max = "HUMAN_ONLY"
+why = "완성 영상을 사람이 보고 공개 여부와 업로드 클릭을 결정합니다."

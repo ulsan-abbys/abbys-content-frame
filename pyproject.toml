@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "avis-content-frame"
+version = "0.1.0"
+description = "지역 AI 스터디의 블로그 초안과 쇼츠 영상 작업 틀"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+frame = "frame.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

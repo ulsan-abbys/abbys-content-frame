@@ -1,0 +1,42 @@
+# 글의 구체성과 가독성을 위한 경고입니다. 경고만으로 검사를 실패시키지는 않습니다.
+[[rule]]
+id = "general.important"
+pattern = '것이 중요합니다'
+severity = "warn"
+reason = "상투적인 강조 대신 무엇을 어떻게 할지 구체적으로 적어 주세요."
+ref = "모임 글쓰기 기준: 구체적인 설명"
+
+[[rule]]
+id = "general.conclusion"
+pattern = '결론적으로'
+severity = "warn"
+reason = "기계적인 맺음말을 문맥에 맞는 표현으로 바꿔 주세요."
+ref = "모임 글쓰기 기준: 자연스러운 문장"
+
+[[rule]]
+id = "general.various"
+pattern = '다양한'
+severity = "warn"
+reason = "어떤 종류인지 구체적인 예를 들어 주세요."
+ref = "모임 글쓰기 기준: 구체적인 설명"
+
+[[rule]]
+id = "general.intro"
+pattern = '알아보겠습니다'
+severity = "warn"
+reason = "예고 문장 대신 독자에게 필요한 정보로 바로 시작해 주세요."
+ref = "모임 글쓰기 기준: 간결한 도입"
+
+[[rule]]
+id = "general.emoji"
+pattern = '[\U0001F300-\U0001FAFF\u2600-\u27BF]'
+severity = "warn"
+reason = "이모지 사용 여부를 문체 설정과 함께 확인해 주세요."
+ref = "모임 글쓰기 기준: 이모지 절제"
+
+[[rule]]
+id = "general.hashtags"
+pattern = '(#\S+\s*){5,}'
+severity = "warn"
+reason = "해시태그가 연속으로 다섯 개 이상입니다. 필요한 것만 남겨 주세요."
+ref = "모임 글쓰기 기준: 해시태그 절제"
