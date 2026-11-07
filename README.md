@@ -20,10 +20,10 @@ N1 이슈 수집
 
 ## 5분 시작
 
-Python 3.11 이상을 준비하고 Windows PowerShell에서 실행합니다. `ulsan-avis`은 운영자가 알려준 GitHub 소유자 이름으로 바꿉니다.
+Python 3.11 이상을 준비하고 Windows PowerShell에서 실행합니다. `ulsan-abbys`은 운영자가 알려준 GitHub 소유자 이름으로 바꿉니다.
 
 ```powershell
-git clone https://github.com/ulsan-avis/avis-content-frame
+git clone https://github.com/ulsan-abbys/avis-content-frame
 cd avis-content-frame
 uv venv; uv pip install -e .[dev]
 .\.venv\Scripts\Activate.ps1
