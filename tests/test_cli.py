@@ -65,3 +65,67 @@ def test_missing_file_and_corrupt_log_are_reported(tmp_path, capsys):
     log.write_text("잘못된 로그\n", encoding="utf-8")
     assert main(["gate", "status", "--log", str(log)], config_dir=CONFIG) == 1
     assert "관문 로그 1번째 줄" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("verdict,code", [("supports", 0), ("unrelated", 1)])
+@pytest.mark.parametrize("profile_mode", ["fallback", "default", "explicit"])
+def test_score_with_fakes(tmp_path, capsys, verdict, code, profile_mode):
+    config = tmp_path / "config"
+    config.mkdir()
+    profile = (CONFIG / "profile.example.toml").read_text(encoding="utf-8")
+    (config / "profile.example.toml").write_text(profile, encoding="utf-8")
+    # 기본 프로필과 명시 프로필은 서로 다른 최소 출처 수를 사용합니다.
+    custom = config / "profile.toml"
+    required = 2 if profile_mode == "fallback" else 1
+    if profile_mode != "fallback":
+        custom.write_text(profile.replace("min_sources = 2", "min_sources = 1"), encoding="utf-8")
+    if profile_mode == "explicit":
+        custom = config / "custom.toml"
+        custom.write_text(profile.replace("min_sources = 2", "min_sources = 3"), encoding="utf-8")
+        required = 3
+        code = 1
+    draft = tmp_path / "초안.md"
+    draft.write_text("# 보습\n본문\n## 출처\n- 안내: https://example.com/a\n"
+                     "- 연구: https://example.com/b\n- [확인 필요]\n", encoding="utf-8-sig")
+
+    class FakeFetcher:
+        def fetch(self, url):
+            return "보습은 건조한 피부의 수분 유지에 도움이 됩니다."
+
+    class FakeJudge:
+        def judge(self, title, body, label, page_text):
+            assert title == "보습" and "## 출처" not in body
+            return {"verdict": verdict, "evidence": page_text, "reason": "주제 판정"}
+
+    args = ["score", str(draft)]
+    if profile_mode == "explicit":
+        args += ["--profile", str(custom)]
+    assert main(args, fetcher=FakeFetcher(), judge=FakeJudge(), config_dir=config) == code
+    output = capsys.readouterr().out
+    assert f"[{verdict}] 안내 - 주제 판정" in output
+    assert "근거: 보습은 건조한 피부의 수분 유지에 도움이 됩니다." in output
+    assert "[unopened] [확인 필요] - URL 없음" in output
+    assert f"출처 대응 {2 if verdict == 'supports' else 0}/{required}" in output
+    assert ("채점 통과" if code == 0 else "채점 실패") in output
+
+
+def test_score_error_exit_code(tmp_path, capsys):
+    assert main(["score", str(tmp_path / "missing.md")], config_dir=CONFIG) == 2
+    assert "오류: 작업을 완료할 수 없습니다." in capsys.readouterr().out
+
+
+def test_score_judge_error_exit_code(tmp_path, capsys):
+    draft = tmp_path / "초안.md"
+    draft.write_text("# 제목\n## 출처\n- 출처: https://example.com\n", encoding="utf-8")
+
+    class FakeFetcher:
+        def fetch(self, url):
+            return "페이지 본문"
+
+    class FailingJudge:
+        def judge(self, *args):
+            raise RuntimeError("판정기 실행 실패")
+
+    assert main(["score", str(draft)], config_dir=CONFIG,
+                fetcher=FakeFetcher(), judge=FailingJudge()) == 2
+    assert "오류: 작업을 완료할 수 없습니다." in capsys.readouterr().out

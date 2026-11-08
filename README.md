@@ -16,7 +16,7 @@ N1 이슈 수집
              -> V2 렌더링 -> V3 영상 점검 -> [G5 업로드 클릭: 항상 사람]
 ```
 
-이 그림의 정본은 `config/graph.toml`입니다. `auto`는 자동화할 수 있는 노드라는 뜻이며, 전체 흐름을 실행하는 엔진은 아직 없습니다. 현재 제공하는 것은 초안 점검, 관문 기록·단계 계산, 그래프 표시, 외부 도구 호출입니다. N6 재작성 반복 상한도 설계 데이터이며 CLI가 자동 반복하지 않습니다. 노드별 실제 상태는 `modules/`에서 확인합니다.
+이 그림의 정본은 `config/graph.toml`입니다. `auto`는 자동화할 수 있는 노드라는 뜻이며, 전체 흐름을 실행하는 엔진은 아직 없습니다. 현재 제공하는 것은 초안 점검, 관문 기록·단계 계산, 그래프 표시, 외부 도구 호출입니다. `frame write --topic`은 초안 작성 뒤 계층 0 점검과 계층 1 출처 채점을 실행하고, 실패하면 기본 최대 2회 고쳐 쓴 뒤 G2 사람 검수로 넘깁니다. 노드별 실제 상태는 `modules/`에서 확인합니다.
 
 ## 5분 시작
 
@@ -93,11 +93,13 @@ abbys-content-frame/
 
 ```powershell
 uv run frame write .
+uv run frame write . --topic "겨울철 가려움과 보습"
+uv run frame score .\초안.md # Claude CLI로 출처와 주제의 관련성 채점 (주장별 확인은 사람)
 $env:MPT_DIR = "C:\도구\MoneyPrinterTurbo"
 uv run frame render .\대본.txt --out .\출력
 ```
 
-`frame write`는 지정한 작업 폴더에서 Claude CLI에 `STATE.md 보고 지금 하는 일을 이어서 해줘.`를 전달합니다. Claude는 `acceptEdits` 모드로 실행되므로 해당 폴더의 파일을 수정할 수 있습니다. 영상 렌더링용 로컬 소재·음성·글꼴은 `MoneyPrinterTurboRenderer` 어댑터 설정으로 교체합니다.
+`frame write`는 `--topic`이 없으면 지정한 작업 폴더에서 Claude CLI에 `STATE.md 보고 지금 하는 일을 이어서 해줘.`를 전달합니다. Claude는 `acceptEdits` 모드로 실행되므로 해당 폴더의 파일을 수정할 수 있습니다. 영상 렌더링용 로컬 소재·음성·글꼴은 `MoneyPrinterTurboRenderer` 어댑터 설정으로 교체합니다.
 
 ## 사람 관문과 단계적 자동화
 

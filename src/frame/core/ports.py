@@ -17,6 +17,14 @@ class UrlChecker(Protocol):
     def check(self, url: str, keywords: list[str]) -> bool: ...
 
 
+class PageFetcher(Protocol):
+    def fetch(self, url: str) -> str | None: ...
+
+
+class SourceJudge(Protocol):
+    def judge(self, title: str, body: str, label: str, page_text: str) -> dict: ...
+
+
 class TrendSource(Protocol):
     def fetch(self, region: str, keywords: list[str]) -> list[dict]: ...
 
