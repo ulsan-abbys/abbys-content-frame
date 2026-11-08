@@ -22,6 +22,10 @@ from frame.adapters.write_workspace import WriteWorkspace
 from frame.core.pipeline import run_write_loop
 from frame.core.ports import GateLog, LLMWriter, PageFetcher, SourceJudge, VideoRenderer
 from frame.core.scoring import parse_draft, score_sources
+from frame.core.naver import markdown_to_naver, NaverLoginRequired, NaverSetupRequired
+from frame.core.ports import BlogDraftSaver
+from frame.config_loader import load_naver_settings, validate_naver_blog_id
+from frame.adapters.naver_html import save_naver_html
 
 
 class KoreanParser(argparse.ArgumentParser):
@@ -83,13 +87,20 @@ def build_parser() -> argparse.ArgumentParser:
     render = commands.add_parser("render", help="대본으로 세로 영상을 만듭니다.")
     render.add_argument("script", metavar="대본", help="UTF-8 대본 파일")
     render.add_argument("--out", required=True, metavar="출력폴더", help="완성 영상을 복사할 폴더")
+    naver = commands.add_parser("naver", help="본인 네이버 블로그에 초안을 임시저장합니다.")
+    naver_commands = naver.add_subparsers(dest="naver_command", required=True, title="네이버 명령")
+    naver_commands.add_parser("login", help="열린 브라우저에서 직접 로그인합니다.")
+    draft = naver_commands.add_parser("draft", help="초안 한 개를 임시저장합니다. 발행은 사람이 합니다.")
+    draft.add_argument("md", metavar="초안.md", help="임시저장할 마크다운 파일")
+    draft.add_argument("--blog-id", metavar="ID", help="본인 블로그 ID (작업폴더 설정보다 우선)")
+    draft.add_argument("--close", action="store_true", help="임시저장 후 브라우저를 닫습니다.")
     return parser
 
 
 def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
          renderer: VideoRenderer | None = None, gate_log: GateLog | None = None,
          fetcher: PageFetcher | None = None, judge: SourceJudge | None = None,
-         config_dir: str | Path = "config") -> int:
+         config_dir: str | Path = "config", draft_saver: BlogDraftSaver | None = None) -> int:
     # Korean Windows consoles are cp949; page quotes may hold characters it cannot encode.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
@@ -97,6 +108,25 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
     args = build_parser().parse_args(argv)
     config_dir = Path(config_dir)
     try:
+        if args.command == "naver":
+            if args.naver_command == "draft":
+                path = Path(args.md)
+                blog_id, label = load_naver_settings(path, args.blog_id)
+                draft = markdown_to_naver(path.read_text(encoding="utf-8-sig"), label)
+                print(f"[HTML 변환] 저장: {save_naver_html(path, draft)}")
+                if draft.has_experience_slots:
+                    print("경고: 경험 슬롯이 남아 있습니다. 발행 전에 직접 채우세요.")
+                validate_naver_blog_id(blog_id)
+                if not draft.title or not draft.plain.strip():
+                    raise ValueError("초안에 '# 제목'과 비어 있지 않은 본문이 필요합니다.")
+            if draft_saver is None:
+                from frame.adapters.naver_browser import NaverBrowser
+                draft_saver = NaverBrowser()
+            if args.naver_command == "login":
+                draft_saver.login()
+            else:
+                draft_saver.save_draft(blog_id, draft, close=args.close)
+            return 0
         if args.command == "new":
             create_workspace(args.workdir, config_dir / "profile.example.toml",
                              field=args.field, name=args.name, region=args.region)
@@ -245,6 +275,9 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
                 review = "사람 검토 필요" if needs_human_review(level, len(relevant) + 1) else "사람 검토 생략 가능"
                 print(f"{gate.id} {gate.name} | {level.value} | 최근 {len(recent)}건: {summary}, 기계 누락 {missed} | 다음 실행: {review}")
         return 0
+    except (NaverLoginRequired, NaverSetupRequired) as exc:
+        print(f"오류: {exc}")
+        return 2
     except EngineUnavailable as exc:
         print(f"오류: 작업을 완료할 수 없습니다. {exc}")
         return 2

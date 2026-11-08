@@ -6,6 +6,26 @@ import tomllib
 
 from frame.core.models import DraftSpec, GateLevel, GateSpec, Rule, RulePack
 from frame.core.pipeline import WritingProfile
+from frame.core.naver import NaverSetupRequired
+
+
+def load_naver_settings(draft_path: Path, explicit_id: str | None) -> tuple[str, str]:
+    """초안에서 가장 가까운 상위 작업폴더 설정을 사용합니다."""
+    profile = next((parent / "profile.toml" for parent in draft_path.resolve().parents
+                    if (parent / "profile.toml").is_file()), None)
+    data = _read(profile) if profile else {}
+    blog_id = explicit_id if explicit_id is not None else data.get("naver", {}).get("blog_id", "")
+    label = data.get("writing", {}).get("experience_label", "내 경험")
+    if not isinstance(blog_id, str) or not isinstance(label, str):
+        raise NaverSetupRequired("blog_id와 experience_label은 문자열이어야 합니다.")
+    return blog_id.strip(), label
+
+
+def validate_naver_blog_id(blog_id: str) -> None:
+    if not blog_id:
+        raise NaverSetupRequired("--blog-id ID 또는 작업폴더/profile.toml의 [naver] blog_id를 설정하세요.")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", blog_id):
+        raise NaverSetupRequired("blog_id에는 블로그 주소 전체가 아닌 영문·숫자·밑줄·하이픈 ID를 입력하세요.")
 
 
 def _read(path: str | Path) -> dict:

@@ -105,6 +105,29 @@ uv run frame render .\대본.txt --out .\출력
 
 `frame write`는 `--topic`이 없으면 선택한 엔진에 `STATE.md 보고 지금 하는 일을 이어서 해줘.`를 전달합니다. 이어 하기의 기존 설정은 Claude `acceptEdits`, Codex `workspace-write`입니다. 파일 수정이 필요한 이어 하기는 claude 엔진을 권장합니다. Windows Codex 샌드박스에서는 쓰기가 제한될 수 있습니다. 프롬프트는 두 엔진 모두 표준 입력으로 전달합니다. Codex CLI 0.167.0의 로컬 도움말에서 `exec`, `-s`, `-C`, `--output-last-message`, 표준 입력 `-`를 확인했습니다. Codex 작성은 `-c web_search=live`로 웹 검색을 켜며, 판정은 임시 폴더에서 `read-only`와 `web_search=disabled`를 사용합니다. 웹 검색 모드는 [공식 설정 문서](https://learn.chatgpt.com/docs/config-file/config-reference)를 따릅니다. 마지막 응답은 `--output-last-message` 파일에서 받습니다. 영상 렌더링용 로컬 소재·음성·글꼴은 `MoneyPrinterTurboRenderer` 어댑터 설정으로 교체합니다.
 
+## 네이버 블로그 임시저장
+
+`frame write` 초안 한 개를 본인 블로그에 임시저장할 수 있습니다. 발행은 사람이 직접 합니다.
+Playwright는 선택 의존성이며, 비밀번호는 프로그램이 다루지 않습니다.
+
+```powershell
+uv run --extra naver playwright install chromium
+uv run --extra naver frame naver login
+uv run --extra naver frame naver draft 작업실/초안/01_생활-정보.md
+```
+
+처음에는 열린 브라우저에서 직접 로그인합니다. 작업폴더 `profile.toml`의 `[naver] blog_id`를
+설정하거나 `--blog-id ID`로 지정하세요. 기본 세션 폴더는 저장소 밖 `~/.abbys/naver-profile`이며
+`ABBYS_NAVER_PROFILE`로 바꿀 수 있습니다. 초안 경로는 실제 파일 이름에 맞춥니다.
+
+제목과 본문을 나누고 점검표를 제거하며, 남은 경험 슬롯은 굵게 표시하고 경고합니다.
+`초안.naver.html` 사본을 먼저 저장하므로 브라우저가 실패해도 수동으로 붙여 넣을 수 있습니다.
+정확히 `저장` 버튼만 클릭합니다. 기본은 확인용 창을 유지하며 Enter로 닫습니다.
+`--close`는 저장 후 바로 닫습니다. 사람이 사실·출처·경험과 실제 저장 상태를 확인한 뒤 발행하세요.
+
+상세 설치·오류 대응·화면 변경 신고 방법은 [네이버 임시저장 안내](docs/네이버_임시저장.md)를 참고하세요.
+변환·CLI·브라우저 경계는 가짜 구현으로 테스트하며, 실제 네이버 편집기 동작은 별도 수동 확인이 필요합니다.
+
 ## 사람 관문과 단계적 자동화
 
 | 단계 | 사람 검토 | 의미 |

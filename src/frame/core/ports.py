@@ -3,6 +3,13 @@
 from typing import Protocol
 
 from frame.core.models import GateDecision
+from frame.core.naver import NaverDraft
+
+
+class BlogDraftSaver(Protocol):
+    def login(self) -> None: ...
+
+    def save_draft(self, blog_id: str, draft: NaverDraft, *, close: bool = False) -> None: ...
 
 
 class LLMWriter(Protocol):
