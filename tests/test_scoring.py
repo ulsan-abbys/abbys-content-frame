@@ -76,3 +76,11 @@ def test_unrelated_fails_even_with_enough_supports():
         "evidence": "보습은 건조한 피부의 수분 유지에 도움이 됩니다.", "reason": "판정 이유",
     }, 2)
     assert result.supported == 2 and not result.passed
+
+
+def test_parse_draft_accepts_bare_url_lines():
+    from frame.core.scoring import parse_draft
+    text = ("# 제목\n\n## 본문\n내용\n\n## 출처\n"
+            "https://a.example/one\n- 기관: https://b.example/two\n\n### 점검표 대조 결과\n- 메모 https://c.example/x\n")
+    urls = [source.url for source in parse_draft(text).sources]
+    assert urls == ["https://a.example/one", "https://b.example/two"]

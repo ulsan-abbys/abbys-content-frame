@@ -57,12 +57,8 @@ class FileWriter:
     def write(self, prompt, workdir):
         self.prompts.append(prompt)
         content = self.drafts[min(len(self.prompts) - 1, len(self.drafts) - 1)]
-        if content is not None:
-            relative = prompt.split("`")[1]
-            path = Path(workdir) / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding="utf-8")
-        return "완료라고 출력하면 안 되는 도구 응답"
+        return f"<<<DRAFT\n{content}\nDRAFT>>>" if content is not None else "초안 없음"
+
 
 
 @pytest.mark.parametrize("mode,count,code", [("pass", 1, 0), ("retry", 2, 0),
@@ -72,10 +68,18 @@ def test_write_integration(tmp_path, capsys, mode, count, code):
     bad = "# 실패표식\n## 출처\n- 안내: https://example.com\n"
     drafts = {"pass": [good], "retry": [bad, good], "fail": [bad], "missing": [None]}[mode]
     writer = FileWriter(drafts)
+    (tmp_path / "AGENTS.md").write_text("고유한 작업 지침 전문", encoding="utf-8")
+    (tmp_path / "STATE.md").write_text("기존 상태", encoding="utf-8")
     assert main(["write", str(tmp_path), "--topic", "겨울 보습!"], writer=writer,
                 fetcher=FakeFetcher(), judge=FakeJudge(), config_dir=ROOT / "config") == code
     output = capsys.readouterr().out
     assert "완료" not in output and "—" not in output
+    assert all("고유한 작업 지침 전문" in prompt for prompt in writer.prompts)
+    state = (tmp_path / "STATE.md").read_text(encoding="utf-8")
+    assert state.startswith("기존 상태\n- ")
+    assert state.endswith(f"초안 초안/01_겨울-보습.md: 기계 점검 {'통과' if code == 0 else '실패'}, 라운드 {count - 1}\n")
+    if mode != "missing":
+        assert (tmp_path / "초안/01_겨울-보습.md").read_text(encoding="utf-8") == drafts[-1].strip()
     assert len(writer.prompts) == count
     records = [json.loads(line) for line in (tmp_path / "logs/write_runs.jsonl").read_text(encoding="utf-8").splitlines()]
     assert len(records) == count
@@ -111,13 +115,14 @@ def test_numbering_slug_and_path(tmp_path):
 def test_clock_and_rewrite_limit():
     prompts, records = [], []
     ticks = iter([1.0, 3.5])
-    outcome = run_write_loop("보습", "초안.md", prompts.append, lambda: "본문",
+    outcome = run_write_loop("보습", "초안.md",
+                             lambda prompt: (prompts.append(prompt) or "<<<DRAFT\n본문\nDRAFT>>>"), lambda text: None,
                              lambda text: (True, {}, []), lambda text: (False, 0, 2, ["출처 부족"]),
                              records.append, 0, clock=lambda: next(ticks))
     assert not outcome.passed and not outcome.draft_missing
     assert len(prompts) == 1 and records[0].seconds == 2.5
     with pytest.raises(ValueError):
-        run_write_loop("보습", "초안.md", prompts.append, lambda: None, None, None,
+        run_write_loop("보습", "초안.md", prompts.append, lambda text: None, None, None,
                        records.append, -1, clock=lambda: 0)
     assert len(prompts) == 1
 
@@ -127,7 +132,7 @@ def test_writer_allowed_tools(monkeypatch):
 
     def run(command, **kwargs):
         assert command == ["resolved-claude", "-p", "--model", "sonnet",
-                           "--permission-mode", "acceptEdits", "--allowedTools", "WebSearch", "WebFetch"]
+                           "--allowedTools", "WebSearch", "WebFetch"]
         # The prompt goes on stdin: claude.cmd cuts arguments at the first newline.
         assert kwargs["input"] == "프롬프트"
         assert kwargs["cwd"] == "작업폴더"
@@ -168,7 +173,7 @@ def test_rewrite_prompt_includes_measured_values():
     prompts = []
     drafts = iter(["짧은 본문", "고친 본문"])
     outcome = run_write_loop(
-        "보습", "초안.md", prompts.append, lambda: next(drafts),
+        "보습", "초안.md", lambda prompt: (prompts.append(prompt) or f"<<<DRAFT\n{next(drafts)}\nDRAFT>>>"), lambda text: None,
         lambda text: (text == "고친 본문", {"chars": 812, "headings": 2},
                       ["본문 공백 제외 글자 수는 1000~1800자여야 합니다."]),
         lambda text: (True, 2, 2, []), lambda record: None, 1, clock=lambda: 0.0,
@@ -176,3 +181,53 @@ def test_rewrite_prompt_includes_measured_values():
     assert outcome.passed and len(prompts) == 2
     assert "현재 측정값: chars=812, headings=2" in prompts[1]
     assert "1000~1800자" in prompts[1]
+    assert "짧은 본문" in prompts[1]
+
+@pytest.mark.parametrize("reply,expected", [
+    ("설명\n<<<DRAFT\n# 제목\n본문\nDRAFT>>>\n후기", "# 제목\n본문"),
+    ("<<<DRAFT\r\n한글\r\nDRAFT>>>\r\n", "한글"),
+    ("```markdown\n긴 코드블록입니다\n```\n<<<DRAFT\n우선\nDRAFT>>>", "우선"),
+    ("```markdown\n짧음\n```\n```markdown\n# 더 긴 초안\n본문입니다\n```", "# 더 긴 초안\n본문입니다"),
+    ("응답만 있습니다", None),
+    ("<<<DRAFT\n닫히지 않음", None),
+    ("<<<DRAFT\n \nDRAFT>>>", None),
+    ("```python\n본문\n```", None),
+])
+def test_extract_draft(reply, expected):
+    from frame.core.pipeline import extract_draft
+    assert extract_draft(reply) == expected
+
+
+@pytest.mark.parametrize("separator", ["---", "## 점검표 대조 결과", "### 점검표 대조 결과"])
+def test_self_evaluation_is_not_a_source(separator):
+    from frame.core.checks import run_checks
+    from frame.core.models import DraftSpec
+    text = ("# 제목\n본문\n## 출처\n- 실제: https://example.com/source\n"
+            f"{separator}\n- 점검 링크: https://example.com/check\n- URL 없는 평가")
+    assert run_checks(text, DraftSpec(0, 1000, 0, 1, 0, "경험"), []).metrics["sources"] == 1
+    parsed = parse_draft(text)
+    assert len(parsed.sources) == 1
+    assert parsed.sources[0].url == "https://example.com/source"
+
+
+def test_missing_reply_does_not_reuse_existing_draft(tmp_path):
+    path = tmp_path / "초안.md"
+    path.write_text("기존 초안 보존", encoding="utf-8")
+    assert main(["write", str(tmp_path), "--topic", "보습", "--draft", "초안.md"],
+                writer=FileWriter([None]), fetcher=FakeFetcher(), judge=FakeJudge(),
+                config_dir=ROOT / "config") == 1
+    assert path.read_text(encoding="utf-8") == "기존 초안 보존"
+    assert "기계 점검 실패, 라운드 0" in (tmp_path / "STATE.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("engine", ["claude", "codex"])
+def test_resume_keeps_edit_mode(monkeypatch, tmp_path, engine):
+    from frame import cli
+    prompts = []
+    def make_writer(*, allow_edits):
+        assert allow_edits is True
+        return SimpleNamespace(write=lambda prompt, workdir: prompts.append(prompt))
+    monkeypatch.setattr(cli, "select_engine", lambda value: engine)
+    monkeypatch.setattr(cli, "ClaudeCliWriter" if engine == "claude" else "CodexCliWriter", make_writer)
+    assert main(["write", str(tmp_path)]) == 0
+    assert prompts == ["STATE.md 보고 지금 하는 일을 이어서 해줘."]

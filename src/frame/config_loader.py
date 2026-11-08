@@ -5,6 +5,7 @@ import re
 import tomllib
 
 from frame.core.models import DraftSpec, GateLevel, GateSpec, Rule, RulePack
+from frame.core.pipeline import WritingProfile
 
 
 def _read(path: str | Path) -> dict:
@@ -17,13 +18,30 @@ def load_profile(path: str | Path | None = None) -> tuple[DraftSpec, dict, list[
         custom = Path("config/profile.toml")
         path = custom if custom.exists() else Path("config/profile.example.toml")
     data = _read(path)
-    spec = DraftSpec(**data["draft"])
+    draft = dict(data["draft"])
+    label = data.get("writing", {}).get("experience_label", "내 경험")
+    draft.setdefault("human_slot_pattern", r"\[" + re.escape(label))
+    spec = DraftSpec(**draft)
     if not 0 <= spec.min_chars <= spec.max_chars:
         raise ValueError("글자 수의 최솟값과 최댓값을 확인하세요.")
     if min(spec.headings, spec.min_sources, spec.min_human_slots) < 0:
         raise ValueError("점검 개수 기준은 음수일 수 없습니다.")
     re.compile(spec.human_slot_pattern)
     return spec, data["persona"], data["rules"]["packs"], data["video"]
+
+
+def load_writing_profile(path: str | Path) -> WritingProfile:
+    data = _read(path)
+    return WritingProfile(**data.get("writing", {}), persona=data.get("persona", {}),
+                          style=data.get("style", {}))
+
+
+def resolve_profile(explicit: str | None, config_dir: Path, workdir: str | None = None) -> Path:
+    if explicit:
+        return Path(explicit)
+    candidates = ([Path(workdir) / "profile.toml"] if workdir is not None else [])
+    candidates += [config_dir / "profile.toml", config_dir / "profile.example.toml"]
+    return next((path for path in candidates if path.is_file()), candidates[-1])
 
 
 def load_pack(name: str, rules_dir: str | Path = "config/rules") -> RulePack:

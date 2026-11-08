@@ -32,3 +32,5 @@ G1 승인 주제, 조사 질문
 
 
 
+
+`frame score --engine auto|claude|codex`와 `FRAME_ENGINE`으로 판정 엔진을 선택합니다. Codex 판정은 읽기 전용 임시 폴더에서 웹 검색 없이 제공된 페이지 본문을 사용하며, Claude와 JSON 해석을 공유합니다. 검증 근거: `tests/test_engines_and_workspace.py`, `tests/test_scoring_adapters.py`. 실제 CLI·네트워크 없이 검증합니다.

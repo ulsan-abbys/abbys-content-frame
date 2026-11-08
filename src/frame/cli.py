@@ -7,11 +7,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from frame.adapters.claude_cli import ClaudeCliWriter
+from frame.adapters.codex_cli import CodexCliWriter, CodexCliJudge
+from frame.adapters.engines import EngineUnavailable, select_engine
+from frame.adapters.new_workspace import create_workspace
 from frame.adapters.claude_judge import ClaudeCliJudge
 from frame.adapters.page_http import HttpPageFetcher
 from frame.adapters.jsonl_log import JsonlGateLog
 from frame.adapters.mpt_cli import MoneyPrinterTurboRenderer
-from frame.config_loader import load_graph, load_pack, load_profile
+from frame.config_loader import load_graph, load_pack, load_profile, load_writing_profile, resolve_profile
 from frame.core.checks import run_checks
 from frame.core.gates import needs_human_review, replay
 from frame.core.models import Decision, GateDecision, GateLevel
@@ -63,12 +66,20 @@ def build_parser() -> argparse.ArgumentParser:
     record.add_argument("--note", default="", metavar="메모", help="검수 메모")
     record.add_argument("--run-id", metavar="실행번호", help="기본값은 현재 시각입니다.")
     commands.add_parser("graph", help="노드·연결·사람 관문을 표시합니다.")
-    write = commands.add_parser("write", help="Claude CLI로 현재 작업을 이어갑니다.")
+    write = commands.add_parser("write", help="선택한 AI CLI로 현재 작업을 이어갑니다.")
     write.add_argument("workdir", metavar="작업폴더", help="STATE.md가 있는 작업 폴더")
-    write.add_argument("--topic", metavar="주제", help="새 건강정보 초안을 작성하고 점검합니다.")
+    write.add_argument("--topic", metavar="주제", help="프로필의 글 종류로 새 초안을 작성하고 점검합니다.")
     write.add_argument("--draft", metavar="상대경로", help="작업 폴더 기준 초안 경로")
     write.add_argument("--max-rewrites", type=int, default=2, metavar="횟수", help="최대 고쳐 쓰기 횟수")
     write.add_argument("--profile", metavar="설정", help="프로필 TOML 경로")
+    for command in (write, score):
+        command.add_argument("--engine", choices=("auto", "claude", "codex"),
+                             help="AI 엔진 (기본: FRAME_ENGINE 또는 auto, claude → codex 순)")
+    new = commands.add_parser("new", help="일반 블로그 작업 폴더를 만듭니다.")
+    new.add_argument("workdir", metavar="폴더", help="새로 만들 작업 폴더")
+    new.add_argument("--field", default="생활", help="글의 분야")
+    new.add_argument("--name", default="가상의 생활 블로거", help="화자 이름")
+    new.add_argument("--region", default="울산", help="독자 지역")
     render = commands.add_parser("render", help="대본으로 세로 영상을 만듭니다.")
     render.add_argument("script", metavar="대본", help="UTF-8 대본 파일")
     render.add_argument("--out", required=True, metavar="출력폴더", help="완성 영상을 복사할 폴더")
@@ -86,15 +97,27 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
     args = build_parser().parse_args(argv)
     config_dir = Path(config_dir)
     try:
+        if args.command == "new":
+            create_workspace(args.workdir, config_dir / "profile.example.toml",
+                             field=args.field, name=args.name, region=args.region)
+            print(f"작업 폴더 생성: {args.workdir}")
+            return 0
+        engine = None
+        if args.command in ("write", "score"):
+            needs_engine = (judge is None if args.command == "score" else
+                            writer is None or (args.topic is not None and judge is None))
+            if needs_engine:
+                engine = select_engine(args.engine)
+            print(f"엔진: {engine or '주입된 구현'}")
+        writer_type = CodexCliWriter if engine == "codex" else ClaudeCliWriter
+        judge_type = CodexCliJudge if engine == "codex" else ClaudeCliJudge
         if args.command in ("check", "score"):
-            profile = args.profile or (config_dir / "profile.toml")
-            if not args.profile and not Path(profile).exists():
-                profile = config_dir / "profile.example.toml"
+            profile = resolve_profile(args.profile, config_dir)
             spec, _, names, _ = load_profile(profile)
             if args.command == "score":
                 parsed = parse_draft(Path(args.md).read_text(encoding="utf-8-sig"))
                 page_fetcher = fetcher if fetcher is not None else HttpPageFetcher()
-                source_judge = judge if judge is not None else ClaudeCliJudge()
+                source_judge = judge if judge is not None else judge_type()
                 score_result = score_sources(parsed, page_fetcher.fetch, source_judge.judge, spec.min_sources)
                 for verdict in score_result.verdicts:
                     print(f"[{verdict.verdict}] {verdict.label} - {verdict.reason}")
@@ -117,20 +140,19 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
             print("점검 통과" if result.passed else "점검 실패")
             return 0 if result.passed else 1
         if args.command == "write":
-            draft_writer = writer if writer is not None else ClaudeCliWriter()
+            draft_writer = writer if writer is not None else (
+                writer_type(allow_edits=True) if args.topic is None else writer_type())
             if args.topic is None:
                 print(draft_writer.write("STATE.md 보고 지금 하는 일을 이어서 해줘.", args.workdir))
                 return 0
             if not args.topic.strip():
                 raise ValueError("주제를 입력하세요.")
             workspace = WriteWorkspace(args.workdir, args.topic, args.draft)
-            profile = args.profile or (config_dir / "profile.toml")
-            if not args.profile and not Path(profile).exists():
-                profile = config_dir / "profile.example.toml"
+            profile = resolve_profile(args.profile, config_dir, args.workdir)
             spec, _, names, _ = load_profile(profile)
             packs = [load_pack(name, config_dir / "rules") for name in names]
             page_fetcher = fetcher if fetcher is not None else HttpPageFetcher()
-            source_judge = judge if judge is not None else ClaudeCliJudge()
+            source_judge = judge if judge is not None else judge_type()
 
             def check_draft(text):
                 result = run_checks(text, spec, packs)
@@ -163,9 +185,13 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
 
             outcome = run_write_loop(
                 args.topic, workspace.draft_rel,
-                lambda prompt: workspace.save_reply(draft_writer.write(prompt, args.workdir)), workspace.read_draft,
+                lambda prompt: workspace.save_reply(draft_writer.write(prompt, args.workdir)), workspace.save_draft,
                 check_draft, score_draft, log_round, args.max_rewrites, clock=time.monotonic,
+                profile=load_writing_profile(profile),
+                agents_text=workspace.read_agents(),
+                profile_text=profile.read_text(encoding="utf-8-sig"),
             )
+            workspace.append_state(outcome.passed, outcome.rounds[-1].round)
             if outcome.draft_missing:
                 print(f"초안 파일이 없습니다. 사람이 확인하세요: {workspace.draft_rel}")
                 return 1
@@ -219,6 +245,9 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
                 review = "사람 검토 필요" if needs_human_review(level, len(relevant) + 1) else "사람 검토 생략 가능"
                 print(f"{gate.id} {gate.name} | {level.value} | 최근 {len(recent)}건: {summary}, 기계 누락 {missed} | 다음 실행: {review}")
         return 0
+    except EngineUnavailable as exc:
+        print(f"오류: 작업을 완료할 수 없습니다. {exc}")
+        return 2
     except (OSError, ValueError, RuntimeError, KeyError, TypeError) as exc:
         message = "작업을 진행할 수 없습니다." if args.command == "write" else "작업을 완료할 수 없습니다."
         print(f"오류: {message} {exc}")

@@ -11,6 +11,7 @@ from frame.adapters import claude_judge, page_http
 def test_fetch_cleans_html(monkeypatch, encoding):
     class Response:
         status = 200
+        headers = {"Content-Type": "text/html"}
 
         def __enter__(self):
             return self
@@ -22,7 +23,8 @@ def test_fetch_cleans_html(monkeypatch, encoding):
             return '<STYLE>숨김</STYLE><script>숨김</script><p>보습&nbsp; 관리</p>'.encode(encoding)
 
     def urlopen(url, timeout):
-        assert url == "https://example.com" and timeout == 20
+        assert url.full_url == "https://example.com" and timeout == 20
+        assert "Mozilla" in url.get_header("User-agent")
         return Response()
 
     monkeypatch.setattr(page_http, "urlopen", urlopen)
@@ -31,13 +33,24 @@ def test_fetch_cleans_html(monkeypatch, encoding):
 
 @pytest.mark.parametrize("status,raw,expected", [
     (201, b"text", None), (200, b"\xff", None), (200, b"a" * 30001, "a" * 30000),
-])
+], ids=["non-ok", "invalid-encoding", "truncate-long-page"])
 def test_fetch_boundaries(monkeypatch, status, raw, expected):
     from contextlib import nullcontext
 
     monkeypatch.setattr(page_http, "urlopen", lambda *a, **k: nullcontext(
-        SimpleNamespace(status=status, read=lambda: raw)))
+        SimpleNamespace(status=status, headers={}, read=lambda: raw)))
     assert page_http.HttpPageFetcher().fetch("https://example.com") == expected
+
+
+def test_fetch_skips_pdf_and_prefers_article(monkeypatch):
+    from contextlib import nullcontext
+
+    assert page_http.HttpPageFetcher().fetch("https://example.com/report.PDF") is None
+    monkeypatch.setattr(page_http, "urlopen", lambda *a, **k: nullcontext(SimpleNamespace(
+        status=200, headers={"Content-Type": "application/pdf"}, read=lambda: b"%PDF")))
+    assert page_http.HttpPageFetcher().fetch("https://example.com/download") is None
+    html = "<nav>메뉴</nav><p>광고</p><article><p>습도 40~60%</p></article><footer>저작권</footer>"
+    assert page_http.html_to_text(html) == "습도 40~60%"
 
 
 def test_fetch_error(monkeypatch):

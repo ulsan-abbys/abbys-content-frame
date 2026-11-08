@@ -20,19 +20,20 @@ N1 이슈 수집
 
 ## 5분 시작
 
-필요한 것은 Git과 [uv](https://docs.astral.sh/uv/)뿐입니다. 파이썬은 uv가 알아서 받습니다. 아무것도 없는 노트북이라면 [abbys-ai-setup의 새 노트북 세팅](https://github.com/ulsan-abbys/abbys-ai-setup/blob/main/docs/새_노트북_세팅.md)부터 따라 하세요.
+필요한 것은 Git, [uv](https://docs.astral.sh/uv/), **Claude Code 또는 Codex CLI 중 하나(설치 후 로그인 필요)**입니다. 초안 작성·점검·사람 확인까지 1편 약 10분을 예상하세요. 주제와 출처에 따라 더 걸릴 수 있습니다. 파이썬은 uv가 알아서 받습니다. 아무것도 없는 노트북이라면 [abbys-ai-setup의 새 노트북 세팅](https://github.com/ulsan-abbys/abbys-ai-setup/blob/main/docs/새_노트북_세팅.md)부터 따라 하세요.
 
 ```powershell
 git clone https://github.com/ulsan-abbys/abbys-content-frame
 cd abbys-content-frame
-uv run frame graph
-uv run frame check "examples\clinic\초안\01_겨울철-가려움-보습.md"
+uv run frame new my-blog --field "생활" --name "생활 기록자" --region "울산"
+uv run frame write my-blog --topic "겨울철 실내 정리" --engine auto
 uv run frame gate status
 ```
 
 - 명령은 모두 **저장소 맨 위 폴더에서** `uv run frame ...`으로 실행합니다. 가상환경을 켤(Activate) 필요가 없습니다.
-- 예시 초안의 `frame check`는 **분량 미달 1건**이 나오면 정상입니다 (일부러 짧게 둔 예시).
-- 내 설정을 쓰려면 `copy config\profile.example.toml config\profile.toml` 후 고칩니다. 없으면 example을 씁니다.
+- `frame new`는 `profile.toml`, `AGENTS.md`, `STATE.md`, `초안/`를 만듭니다. 대상 폴더나 파일이 이미 있으면 덮어쓰지 않고 실패합니다.
+- 피부과 예시를 점검할 때는 `frame check "examples/clinic/초안/01_겨울철-가려움-보습.md" --profile examples/clinic/profile.toml`을 사용합니다. **분량 미달 1건**은 일부러 짧게 둔 예시의 정상 결과입니다.
+- `my-blog/profile.toml`에서 화자·말투·글 종류·경험 슬롯을 고칩니다. `write --profile`이 없으면 **작업폴더/profile.toml → config/profile.toml → config/profile.example.toml** 순으로 읽습니다. `check`와 `score`는 작업폴더 프로필을 `--profile`로 지정하세요.
 - Git이 없으면 GitHub 페이지의 **Code → Download ZIP**으로 받아 압축을 풀어도 됩니다.
 - 테스트: `uv run --extra dev python -m pytest -q`
 
@@ -87,19 +88,22 @@ abbys-content-frame/
 | 3. `src/frame/adapters/` | 다른 AI·다른 영상 도구 | 같은 포트를 구현하고 가짜 구현으로 테스트 |
 | 4. `config/graph.toml` | 노드·연결·관문 추가 | 모듈 카드와 연결 검증 테스트도 갱신 |
 
-`persona`와 `style`은 작성 도구에 연결할 설정이며 현재 얇은 `frame write` 명령이 자동으로 프롬프트에 넣지는 않습니다. `forbid_emoji`는 문체 지침이고, 현재 예시 규칙 팩의 이모지 발견은 경고입니다. 엄격한 차단이 필요하면 해당 규칙의 `severity`를 `error`로 바꿉니다. 의료 규칙의 조문 표시는 요청된 예시의 검토 힌트이며 법률 판단이나 심의 통과를 보장하지 않습니다.
+`frame write --topic`은 `persona`의 name·field·region·purpose와 `style`의 tone·forbid_emoji를 최초 작성과 고쳐 쓰기 프롬프트에 넣습니다. `[writing]`의 genre(글 종류)·checklist(점검표 이름)·experience_label(경험 슬롯 이름)도 적용합니다. 일반 예시는 생활 정보·내 경험이며, 피부과 설정은 `examples/clinic/profile.toml`에 있습니다. `draft.human_slot_pattern`을 생략하면 experience_label에 맞는 패턴을 만듭니다. 명시했다면 슬롯 이름과 함께 수정하세요. `forbid_emoji`는 문체 지침이고, 현재 예시 규칙 팩의 이모지 발견은 경고입니다. 엄격한 차단이 필요하면 해당 규칙의 `severity`를 `error`로 바꿉니다. 의료 규칙의 조문 표시는 요청된 예시의 검토 힌트이며 법률 판단이나 심의 통과를 보장하지 않습니다.
 
-외부 도구 호출 예시는 다음과 같습니다. Claude CLI와 MoneyPrinterTurbo는 별도 설치가 필요하며 이 저장소의 Python 의존성에 포함하지 않습니다.
+외부 도구 호출 예시는 다음과 같습니다. 작성·출처 채점에는 **Claude Code 또는 Codex CLI 중 하나**를 별도로 설치하고 로그인해야 합니다. 영상 생성에는 MoneyPrinterTurbo가 별도로 필요합니다. 이 도구들은 Python 의존성에 포함하지 않습니다. `check`와 `new`는 AI CLI 없이도 실행됩니다.
 
 ```powershell
-uv run frame write .
-uv run frame write . --topic "겨울철 가려움과 보습"
-uv run frame score .\초안.md # Claude CLI로 출처와 주제의 관련성 채점 (주장별 확인은 사람)
-$env:MPT_DIR = "C:\도구\MoneyPrinterTurbo"
+uv run frame write my-blog --engine codex
+uv run frame write my-blog --topic "겨울철 실내 정리" --engine claude
+uv run frame score my-blog/초안/01_겨울철-실내-정리.md --profile my-blog/profile.toml --engine auto
+$env:FRAME_ENGINE = "codex" # --engine이 없을 때 적용
+$env:MPT_DIR = "./tools/MoneyPrinterTurbo"
 uv run frame render .\대본.txt --out .\출력
 ```
 
-`frame write`는 `--topic`이 없으면 지정한 작업 폴더에서 Claude CLI에 `STATE.md 보고 지금 하는 일을 이어서 해줘.`를 전달합니다. Claude는 `acceptEdits` 모드로 실행되므로 해당 폴더의 파일을 수정할 수 있습니다. 영상 렌더링용 로컬 소재·음성·글꼴은 `MoneyPrinterTurboRenderer` 어댑터 설정으로 교체합니다.
+`write`와 `score`의 엔진 우선순위는 `--engine` → `FRAME_ENGINE` → `auto`입니다. `auto`는 PATH에서 claude → codex 순으로 첫 번째를 선택하며 첫 줄에 엔진 이름을 출력합니다. 실행 실패 후 다른 엔진으로 자동 재시도하지 않습니다. 둘 다 없으면 설치·로그인 안내와 종료코드 2를 반환합니다.
+
+`frame write`는 `--topic`이 없으면 선택한 엔진에 `STATE.md 보고 지금 하는 일을 이어서 해줘.`를 전달합니다. 이어 하기의 기존 설정은 Claude `acceptEdits`, Codex `workspace-write`입니다. 파일 수정이 필요한 이어 하기는 claude 엔진을 권장합니다. Windows Codex 샌드박스에서는 쓰기가 제한될 수 있습니다. 프롬프트는 두 엔진 모두 표준 입력으로 전달합니다. Codex CLI 0.167.0의 로컬 도움말에서 `exec`, `-s`, `-C`, `--output-last-message`, 표준 입력 `-`를 확인했습니다. Codex 작성은 `-c web_search=live`로 웹 검색을 켜며, 판정은 임시 폴더에서 `read-only`와 `web_search=disabled`를 사용합니다. 웹 검색 모드는 [공식 설정 문서](https://learn.chatgpt.com/docs/config-file/config-reference)를 따릅니다. 마지막 응답은 `--output-last-message` 파일에서 받습니다. 영상 렌더링용 로컬 소재·음성·글꼴은 `MoneyPrinterTurboRenderer` 어댑터 설정으로 교체합니다.
 
 ## 사람 관문과 단계적 자동화
 
@@ -141,3 +145,6 @@ python -m pytest -q
 - 기계 점검 통과를 사실·의료·법률 검수 완료로 간주
 
 라이선스는 MIT이며 저작권자는 Ulsan Abbys AI contributors입니다.
+
+
+`frame write --topic`에서는 frame이 파일 입출력을 전담합니다. 작업폴더의 `AGENTS.md` 전문과 선택한 프로필 지침을 프롬프트에 넣고, 고쳐 쓰기에는 현재 초안 전문도 넣습니다. AI는 파일을 읽거나 쓰지 않고 `<<<DRAFT`와 `DRAFT>>>` 독립 줄 사이에 완성 초안을 응답합니다. 마커가 없으면 가장 긴 `markdown` 코드블록을 사용하며, 둘 다 없으면 초안 없음으로 실패합니다. frame은 초안을 지정 경로에 UTF-8로 저장한 뒤 점검하고, 최종 결과를 `STATE.md`에 ISO 시각·초안 경로·기계 점검 통과/실패·라운드 번호(최초 0)로 추가합니다. Claude 작성은 `--allowedTools WebSearch WebFetch`, Codex 작성은 `-s read-only`와 웹 검색을 사용합니다. 출처 뒤의 `---`, 다음 `##` 제목 또는 `### 점검표`부터는 출처 점검·채점에서 제외합니다. 이는 사람 검수나 게시 승인을 대신하지 않습니다.

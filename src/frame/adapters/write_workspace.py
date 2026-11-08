@@ -31,6 +31,24 @@ class WriteWorkspace:
         except FileNotFoundError:
             return None
 
+    def read_agents(self) -> str:
+        path = self.root / "AGENTS.md"
+        return path.read_text(encoding="utf-8-sig") if path.exists() else ""
+
+    def save_draft(self, text: str) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(text, encoding="utf-8")
+
+    def append_state(self, passed: bool, round_number: int) -> None:
+        path = self.root / "STATE.md"
+        previous = path.read_text(encoding="utf-8-sig") if path.exists() else ""
+        status = "통과" if passed else "실패"
+        with path.open("a", encoding="utf-8") as stream:
+            if previous and not previous.endswith("\n"):
+                stream.write("\n")
+            stream.write(f"- {datetime.now(timezone.utc).isoformat()} 초안 {self.draft_rel}: "
+                         f"기계 점검 {status}, 라운드 {round_number}\n")
+
     def log(self, record: RoundRecord) -> None:
         path = self.root / "logs/write_runs.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)

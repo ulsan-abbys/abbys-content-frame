@@ -44,11 +44,13 @@ def parse_draft(text: str) -> ParsedDraft:
     sources = []
     for line in section.splitlines():
         line = line.strip()
-        if line == "---" or line.startswith("## "):
+        if line == "---" or line.startswith("#"):
             break
-        if not line.startswith("- "):
+        # Accept bullet lines and bare URL lines alike: the check counts any URL line too.
+        match = re.search(r"https?://[^\s<>\]\)]+", line)
+        if not line.startswith(("- ", "* ")) and match is None:
             continue
-        item = line[2:].strip()
+        item = line[2:].strip() if line.startswith(("- ", "* ")) else line
         match = re.search(r"https?://[^\s<>\]\)]+", item)
         label = (item[:match.start()] if match else item).strip().rstrip(":").strip()
         sources.append(DraftSource(label, match.group() if match else None))

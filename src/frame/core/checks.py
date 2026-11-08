@@ -9,7 +9,10 @@ def split_body(text: str) -> tuple[str, str]:
     heading = re.search(r"^## 출처[ \t]*\r?$", text, re.MULTILINE)
     if heading is None:
         return text, ""
-    return text[:heading.start()], text[heading.end():]
+    section = text[heading.end():]
+    end = re.search(r"^(?:---[ \t]*|##[ \t]+.*|### [ \t]*점검표.*)\r?$",
+                    section, re.MULTILINE)
+    return text[:heading.start()], section[:end.start()] if end else section
 
 
 def count_chars(body: str) -> int:

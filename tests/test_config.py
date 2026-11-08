@@ -14,7 +14,10 @@ def test_profile_and_all_patterns():
     assert (spec.min_chars, spec.max_chars, spec.headings) == (1200, 1800, 3)
     assert persona["region"] == "울산"
     assert video == {"target_seconds": 45, "tolerance_seconds": 5}
-    assert names == ["general_ko", "medical_ko"]
+    assert names == ["general_ko"]
+    clinic = load_profile(ROOT / "examples/clinic/profile.toml")
+    assert clinic[2] == ["general_ko", "medical_ko"]
+    assert clinic[1]["field"] == "피부과"
     re.compile(spec.human_slot_pattern)
     for name in names:
         pack = load_pack(name, ROOT / "config/rules")

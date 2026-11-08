@@ -6,9 +6,11 @@ import subprocess
 
 class ClaudeCliWriter:
     def __init__(self, model: str = "sonnet",
-                 allowed_tools: tuple[str, ...] = ("WebSearch", "WebFetch")) -> None:
+                 allowed_tools: tuple[str, ...] = ("WebSearch", "WebFetch"), *,
+                 allow_edits: bool = False) -> None:
         self.model = model
         self.allowed_tools = allowed_tools
+        self.allow_edits = allow_edits
 
     def write(self, prompt: str, workdir: str) -> str:
         # npm installs claude.cmd on Windows, which subprocess cannot find by bare name.
@@ -17,7 +19,8 @@ class ClaudeCliWriter:
             # Send the prompt on stdin: claude.cmd (npm) cuts arguments at the first newline.
             result = subprocess.run(
                 [executable, "-p", "--model", self.model,
-                 "--permission-mode", "acceptEdits", "--allowedTools", *self.allowed_tools],
+                 *(["--permission-mode", "acceptEdits"] if self.allow_edits else []),
+                 "--allowedTools", *self.allowed_tools],
                 input=prompt, cwd=workdir, capture_output=True, text=True, encoding="utf-8",
             )
         except OSError as exc:
