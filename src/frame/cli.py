@@ -22,7 +22,7 @@ from frame.adapters.write_workspace import WriteWorkspace
 from frame.core.pipeline import run_write_loop
 from frame.core.ports import GateLog, LLMWriter, PageFetcher, SourceJudge, VideoRenderer
 from frame.core.scoring import parse_draft, score_sources
-from frame.core.naver import markdown_to_naver
+from frame.core.naver import count_naver_body, markdown_to_naver
 from frame.config_loader import load_experience_label
 from frame.adapters.naver_html import save_naver_html
 
@@ -109,11 +109,12 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
             label = load_experience_label(path)
             draft = markdown_to_naver(path.read_text(encoding="utf-8-sig"), label)
             print(f"[HTML 변환] 저장: {save_naver_html(path, draft)}")
+            print(count_naver_body(draft.html).confirmation())
             if draft.has_experience_slots:
                 print("경고: 경험 슬롯이 남아 있습니다. 발행 전에 직접 채우세요.")
             if not draft.title or not draft.plain.strip():
                 raise ValueError("초안에 '# 제목'과 비어 있지 않은 본문이 필요합니다.")
-            print("평소 쓰는 크롬에서 네이버 블로그 글쓰기 열기 → HTML 파일을 브라우저로 열어 Ctrl+A, Ctrl+C → 에디터 본문에 Ctrl+V → 제목 입력 → 임시저장 → 발행은 직접")
+            print("HTML 파일 열기 → [본문 복사] → 편집기 본문 클릭 → Ctrl+V → [제목 복사] → 제목 칸 클릭 → Ctrl+V → 확인 개수 대조 → 임시저장 → 발행은 직접")
             return 0
         if args.command == "new":
             create_workspace(args.workdir, config_dir / "profile.example.toml",

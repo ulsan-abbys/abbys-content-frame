@@ -1,9 +1,11 @@
 """변환·설정·CLI를 브라우저 없이 검증합니다."""
 from pathlib import Path
+from html.parser import HTMLParser
+import re
 import pytest
 from frame.cli import main
 from frame.config_loader import load_experience_label
-from frame.core.naver import markdown_to_naver
+from frame.core.naver import NaverCounts, count_naver_body, markdown_to_naver
 from frame.adapters.naver_html import save_naver_html
 from frame.adapters.new_workspace import create_workspace
 
@@ -43,7 +45,8 @@ def test_html_file(tmp_path):
     assert path == tmp_path / '초안.naver.html'
     text = path.read_text(encoding='utf-8')
     assert '<meta charset="utf-8">' in text
-    assert '<h1>제목 &lt;안전&gt;</h1>' in text
+    assert '<title>제목 &lt;안전&gt;</title>' in text
+    assert '<h1' not in text
     assert '<p>본문</p>' in text
     assert source.read_text(encoding='utf-8') == '원본'
 
@@ -82,7 +85,8 @@ def test_cli_draft(workspace, capsys, monkeypatch):
     assert main(['naver', 'draft', str(workspace)]) == 0
     output = capsys.readouterr().out
     assert '경고: 경험 슬롯' in output
-    assert '평소 쓰는 크롬에서 네이버 블로그 글쓰기 열기 → HTML 파일을 브라우저로 열어 Ctrl+A, Ctrl+C → 에디터 본문에 Ctrl+V → 제목 입력 → 임시저장 → 발행은 직접' in output
+    assert '[본문 복사] → 편집기 본문 클릭 → Ctrl+V' in output
+    assert '확인: 제목 1 · 소제목 0 · 목록 0 · 굵게 1 · 링크 0' in output
     assert str(workspace.with_suffix('.naver.html')) in output
     assert '[내 경험 — 발행 전에 직접 채우세요]' in workspace.with_suffix('.naver.html').read_text(encoding='utf-8')
 
@@ -104,3 +108,50 @@ def test_new_workspace_profile(tmp_path):
     text = (destination / 'profile.toml').read_text(encoding='utf-8')
     assert '[naver]' not in text
     assert 'experience_label' in text
+
+
+@pytest.mark.parametrize('html, expected', [
+    ('', NaverCounts()),
+    ('&lt;h2&gt;문자&lt;/h2&gt;<!-- <li> --><p>strong a li</p>', NaverCounts()),
+    ('<h2>소제목</h2><ul><li><strong>굵게</strong></li><li><a href="https://example.org">링크</a></li></ul><b>굵게</b>', NaverCounts(1, 2, 2, 1)),
+])
+def test_count_naver_body(html, expected):
+    assert count_naver_body(html) == expected
+
+
+def test_generated_counts_and_copy_boundary(tmp_path):
+    draft = markdown_to_naver('# 제목\n## 첫째\n**강조**\n- 하나\n- [둘](https://example.org)\n## 출처\n[내 경험]\n---\n## 제외')
+    assert count_naver_body(draft.html) == NaverCounts(2, 2, 2, 1)
+    text = save_naver_html(tmp_path / 'draft.md', draft).read_text(encoding='utf-8')
+
+    class Structure(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.divs = []
+            self.parents = {}
+
+        def handle_starttag(self, tag, attrs):
+            ident = dict(attrs).get('id')
+            if ident:
+                self.parents[ident] = tuple(self.divs)
+            if tag == 'div':
+                self.divs.append(ident)
+
+        def handle_endtag(self, tag):
+            if tag == 'div':
+                self.divs.pop()
+
+    structure = Structure()
+    structure.feed(text)
+    assert structure.parents['frame-body'] == ()
+    assert structure.parents['frame-bar'] == ()
+    for ident in ('copy-body', 'copy-title', 'copy-status', 'frame-confirmation'):
+        assert structure.parents[ident] == ('frame-bar',)
+    assert f'<div id="frame-body">{draft.html}</div>' in text
+    assert count_naver_body(draft.html).confirmation() in text
+    assert not re.search(r'\.innerHTML\s*(?:[+]?=)', text)
+    assert "navigator.clipboard.write" in text
+    assert "'text/html'" in text and "'text/plain'" in text
+    assert "range.selectNodeContents(target)" in text
+    assert "if (!document.execCommand('copy'))" in text
+    assert 'titleEl.textContent = document.title' in text

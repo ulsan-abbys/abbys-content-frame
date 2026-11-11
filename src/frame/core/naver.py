@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from html import escape
+from html.parser import HTMLParser
 import re
 
 
@@ -11,6 +12,35 @@ class NaverDraft:
     html: str
     plain: str
     has_experience_slots: bool
+
+
+@dataclass(frozen=True)
+class NaverCounts:
+    headings: int = 0
+    items: int = 0
+    bold: int = 0
+    links: int = 0
+
+    def confirmation(self) -> str:
+        return (f"확인: 제목 1 · 소제목 {self.headings} · 목록 {self.items}"
+                f" · 굵게 {self.bold} · 링크 {self.links}")
+
+
+def count_naver_body(html: str) -> NaverCounts:
+    """생성된 본문의 실제 태그를 셉니다. 목록은 목록 항목(li) 수입니다."""
+    counts = dict(headings=0, items=0, bold=0, links=0)
+
+    class Counter(HTMLParser):
+        def handle_starttag(self, tag, attrs):
+            key = {"h2": "headings", "li": "items", "strong": "bold",
+                   "b": "bold", "a": "links"}.get(tag)
+            if key:
+                counts[key] += 1
+
+    parser = Counter()
+    parser.feed(html)
+    parser.close()
+    return NaverCounts(**counts)
 
 
 def _inline(text: str, label: str) -> tuple[str, str, bool]:
