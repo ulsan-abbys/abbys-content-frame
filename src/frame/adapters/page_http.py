@@ -2,11 +2,11 @@
 
 from html import unescape
 import re
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
-# Many Korean news sites answer 403 to the default "Python-urllib" agent.
-USER_AGENT = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-              "(KHTML, like Gecko) Chrome/130.0 Safari/537.36")
+from frame.adapters.crawl_http import USER_AGENT, can_fetch, urlopen
+
+# 사이트가 정직한 User-Agent에 403을 반환하면 수집하지 않습니다.
 
 
 def html_to_text(html: str) -> str:
@@ -25,6 +25,8 @@ def html_to_text(html: str) -> str:
 class HttpPageFetcher:
     def fetch(self, url: str) -> str | None:
         if url.lower().split("?")[0].endswith(".pdf"):
+            return None
+        if not can_fetch(url):
             return None
         try:
             with urlopen(Request(url, headers={"User-Agent": USER_AGENT}), timeout=20) as response:

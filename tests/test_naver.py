@@ -2,8 +2,8 @@
 from pathlib import Path
 import pytest
 from frame.cli import main
-from frame.config_loader import load_naver_settings
-from frame.core.naver import markdown_to_naver, NaverLoginRequired
+from frame.config_loader import load_experience_label
+from frame.core.naver import markdown_to_naver
 from frame.adapters.naver_html import save_naver_html
 from frame.adapters.new_workspace import create_workspace
 
@@ -48,9 +48,10 @@ def test_html_file(tmp_path):
     assert source.read_text(encoding='utf-8') == '원본'
 
 
+
 @pytest.fixture
 def workspace(tmp_path):
-    (tmp_path / 'profile.toml').write_text('[naver]\nblog_id="sample_blog"\n[writing]\nexperience_label="체험"', encoding='utf-8')
+    (tmp_path / 'profile.toml').write_text('[writing]\nexperience_label="체험"', encoding='utf-8')
     folder = tmp_path / '초안'
     folder.mkdir()
     path = folder / '글.md'
@@ -58,81 +59,48 @@ def workspace(tmp_path):
     return path
 
 
-def test_blog_id_precedence(workspace):
-    assert load_naver_settings(workspace, None) == ('sample_blog', '체험')
-    assert load_naver_settings(workspace, 'override') == ('override', '체험')
-    assert load_naver_settings(workspace, '') == ('', '체험')
+def test_label(workspace, tmp_path):
+    assert load_experience_label(workspace) == '체험'
+    assert load_experience_label(tmp_path.parent / 'draft.md') == '내 경험'
 
 
-def test_no_profile_uses_default_label_and_cli_id(tmp_path):
-    path = tmp_path / 'draft.md'
-    assert load_naver_settings(path, 'example') == ('example', '내 경험')
-    assert load_naver_settings(path, None) == ('', '내 경험')
+def test_invalid_label(workspace):
+    (workspace.parent.parent / 'profile.toml').write_text('[writing]\nexperience_label=1', encoding='utf-8')
+    assert main(['naver', 'draft', str(workspace)]) == 1
 
 
-def test_empty_draft_keeps_html_but_never_opens_browser(workspace):
-    workspace.write_text('# 제목\n---\n점검표', encoding='utf-8')
-    saver = FakeSaver()
-    assert main(['naver', 'draft', str(workspace)], draft_saver=saver) == 1
-    assert workspace.with_suffix('.naver.html').is_file()
-    assert not saver.saved
-
-
-class FakeSaver:
-    def __init__(self, error=None):
-        self.saved = []
-        self.logged_in = False
-        self.error = error
-
-    def login(self):
-        self.logged_in = True
-
-    def save_draft(self, blog_id, draft, *, close=False):
-        if self.error:
-            raise self.error
-        self.saved.append((blog_id, draft, close))
-
-
-def test_cli_draft(workspace, capsys):
-    saver = FakeSaver()
-    assert main(['naver', 'draft', str(workspace), '--blog-id', 'override', '--close'], draft_saver=saver) == 0
-    blog_id, draft, close = saver.saved[0]
-    assert (blog_id, draft.title, close) == ('override', '제목', True)
-    assert draft.has_experience_slots
-    assert '경고' in capsys.readouterr().out
+@pytest.mark.parametrize('text', ['# 제목\n---\n점검표', '본문만', ''])
+def test_empty_draft_keeps_html(workspace, text):
+    workspace.write_text(text, encoding='utf-8')
+    assert main(['naver', 'draft', str(workspace)]) == 1
     assert workspace.with_suffix('.naver.html').is_file()
 
 
-def test_cli_login():
-    saver = FakeSaver()
-    assert main(['naver', 'login'], draft_saver=saver) == 0
-    assert saver.logged_in
+def test_cli_draft(workspace, capsys, monkeypatch):
+    import socket
+    monkeypatch.setattr(socket, 'create_connection', lambda *a, **k: pytest.fail('네트워크 호출 금지'))
+    assert main(['naver', 'draft', str(workspace)]) == 0
+    output = capsys.readouterr().out
+    assert '경고: 경험 슬롯' in output
+    assert '평소 쓰는 크롬에서 네이버 블로그 글쓰기 열기 → HTML 파일을 브라우저로 열어 Ctrl+A, Ctrl+C → 에디터 본문에 Ctrl+V → 제목 입력 → 임시저장 → 발행은 직접' in output
+    assert str(workspace.with_suffix('.naver.html')) in output
+    assert '[내 경험 — 발행 전에 직접 채우세요]' in workspace.with_suffix('.naver.html').read_text(encoding='utf-8')
 
 
-@pytest.mark.parametrize('error,code', [(NaverLoginRequired('frame naver login 먼저'), 2), (RuntimeError('본문 단계 실패'), 1)])
-def test_cli_failure_keeps_html(workspace, error, code, capsys):
-    assert main(['naver', 'draft', str(workspace)], draft_saver=FakeSaver(error)) == code
-    assert workspace.with_suffix('.naver.html').is_file()
-    assert str(error) in capsys.readouterr().out
+@pytest.mark.parametrize('args', [['login'], ['draft', 'x.md', '--browser'], ['draft', 'x.md', '--blog-id', 'id'], ['draft', 'x.md', '--close']])
+def test_removed_commands_rejected(args):
+    with pytest.raises(SystemExit) as exc:
+        main(['naver', *args])
+    assert exc.value.code == 2
 
 
-def test_cli_missing_blog_id(workspace, capsys):
-    saver = FakeSaver()
-    assert main(['naver', 'draft', str(workspace), '--blog-id', ''], draft_saver=saver) == 2
-    assert not saver.saved
-    assert 'blog_id' in capsys.readouterr().out
-    assert workspace.with_suffix('.naver.html').is_file()
+def test_missing_draft(tmp_path):
+    assert main(['naver', 'draft', str(tmp_path / 'missing.md')]) == 1
 
 
-def test_new_workspace_naver_profile(tmp_path):
+def test_new_workspace_profile(tmp_path):
     destination = tmp_path / '작업실'
     create_workspace(str(destination), Path('config/profile.example.toml'), field='생활', name='예시', region='지역')
     text = (destination / 'profile.toml').read_text(encoding='utf-8')
-    assert '[naver]\nblog_id = ""' in text
-
-
-@pytest.mark.parametrize('blog_id', ['https://example.org', '../elsewhere', 'id?x=1'])
-def test_invalid_id_never_opens_browser(workspace, blog_id):
-    saver = FakeSaver()
-    assert main(['naver', 'draft', str(workspace), '--blog-id', blog_id], draft_saver=saver) == 2
-    assert not saver.saved
+    assert '[naver]' not in text
+    assert 'experience_label' in text

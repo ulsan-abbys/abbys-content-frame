@@ -7,6 +7,11 @@ import pytest
 from frame.adapters import claude_judge, page_http
 
 
+@pytest.fixture(autouse=True)
+def allow_test_pages(monkeypatch):
+    monkeypatch.setattr(page_http, "can_fetch", lambda url: True)
+
+
 @pytest.mark.parametrize("encoding", ["utf-8", "cp949"])
 def test_fetch_cleans_html(monkeypatch, encoding):
     class Response:
@@ -24,7 +29,7 @@ def test_fetch_cleans_html(monkeypatch, encoding):
 
     def urlopen(url, timeout):
         assert url.full_url == "https://example.com" and timeout == 20
-        assert "Mozilla" in url.get_header("User-agent")
+        assert url.get_header("User-agent").startswith("abbys-content-frame/")
         return Response()
 
     monkeypatch.setattr(page_http, "urlopen", urlopen)

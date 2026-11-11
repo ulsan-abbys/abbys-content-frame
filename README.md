@@ -107,26 +107,28 @@ uv run frame render .\대본.txt --out .\출력
 
 ## 네이버 블로그 임시저장
 
-`frame write` 초안 한 개를 본인 블로그에 임시저장할 수 있습니다. 발행은 사람이 직접 합니다.
-Playwright는 선택 의존성이며, 비밀번호는 프로그램이 다루지 않습니다.
+`frame naver draft`는 로컬 HTML 파일만 만듭니다. 별도 브라우저 의존성이나 블로그 ID 설정은 필요하지 않습니다.
 
 ```powershell
-uv run --extra naver playwright install chromium
-uv run --extra naver frame naver login
-uv run --extra naver frame naver draft 작업실/초안/01_생활-정보.md
+uv run frame naver draft 작업실/초안/01_생활-정보.md
 ```
 
-처음에는 열린 브라우저에서 직접 로그인합니다. 작업폴더 `profile.toml`의 `[naver] blog_id`를
-설정하거나 `--blog-id ID`로 지정하세요. 기본 세션 폴더는 저장소 밖 `~/.abbys/naver-profile`이며
-`ABBYS_NAVER_PROFILE`로 바꿀 수 있습니다. 초안 경로는 실제 파일 이름에 맞춥니다.
+평소 쓰는 크롬에서 네이버 블로그 글쓰기 열기 → HTML 파일을 브라우저로 열어 Ctrl+A, Ctrl+C → 에디터 본문에 Ctrl+V → 제목 입력 → 임시저장 → 발행은 직접
 
-제목과 본문을 나누고 점검표를 제거하며, 남은 경험 슬롯은 굵게 표시하고 경고합니다.
-`초안.naver.html` 사본을 먼저 저장하므로 브라우저가 실패해도 수동으로 붙여 넣을 수 있습니다.
-정확히 `저장` 버튼만 클릭합니다. 기본은 확인용 창을 유지하며 Enter로 닫습니다.
-`--close`는 저장 후 바로 닫습니다. 사람이 사실·출처·경험과 실제 저장 상태를 확인한 뒤 발행하세요.
+출력된 `초안.naver.html`을 사용하세요. 본문에 함께 붙은 제목은 지우고 제목칸에 따로 입력합니다.
+점검표는 제외하고 경험 슬롯은 굵게 표시하며 경고합니다. 작업폴더 `profile.toml`의 `[writing] experience_label`도 적용합니다.
+사람이 경험 슬롯을 채우고 사실·출처·서식·실제 저장 상태를 확인해야 합니다. 검사 통과는 게시 승인을 대신하지 않습니다.
 
-상세 설치·오류 대응·화면 변경 신고 방법은 [네이버 임시저장 안내](docs/네이버_임시저장.md)를 참고하세요.
-변환·CLI·브라우저 경계는 가짜 구현으로 테스트하며, 실제 네이버 편집기 동작은 별도 수동 확인이 필요합니다.
+상세 안내: [네이버 붙여넣기](docs/네이버_임시저장.md).
+
+## 준수 기준
+
+- [네이버 이용약관](https://policy.naver.com/rules/service.html)(2026-10-01): 자동화 수단 로그인·게시·삽입·회원 ID/게시물 수집 금지 → 브라우저 자동화 없음, 사람이 붙여넣기만 합니다.
+- [RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html) robots.txt 준수 + 정직한 User-Agent. robots.txt 4xx는 허용, 5xx·네트워크 오류는 차단하며 출처의 403은 그대로 받아들입니다. 캐시는 출처(스킴·호스트·포트)별 최대 24시간입니다.
+- [W3C WebDriver](https://www.w3.org/TR/webdriver/) 자동화 표시 은폐 금지.
+- [정보통신망법 제48조](https://www.law.go.kr/법령/정보통신망이용촉진및정보보호등에관한법률/제48조): 접근 권한을 넘는 침입·정보통신망 장애 유발 행위를 금지합니다.
+- Tor·VPN·IP 회전·스텔스/undetected 드라이버·캡차 우회는 지원하지 않으며 기여(PR)도 받지 않습니다.
+- 네이버 데이터는 공식 API(데이터랩 등)만 사용합니다. 블로그·카페·포스트·지식인 회원 게시물은 HTTP 수집 전에 차단합니다.
 
 ## 사람 관문과 단계적 자동화
 

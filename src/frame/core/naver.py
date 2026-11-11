@@ -1,16 +1,8 @@
-"""네이버 임시저장을 위한 순수 마크다운 변환과 값 객체."""
+"""네이버 붙여넣기를 위한 순수 마크다운 변환과 값 객체."""
 
 from dataclasses import dataclass
 from html import escape
 import re
-
-
-class NaverLoginRequired(RuntimeError):
-    """사용자가 먼저 브라우저에서 로그인해야 합니다."""
-
-
-class NaverSetupRequired(RuntimeError):
-    """선택 의존성 또는 사용자 설정이 필요합니다."""
 
 
 @dataclass(frozen=True)

@@ -48,7 +48,3 @@ tolerance_seconds = 5
 genre = "생활 정보"
 checklist = "AGENTS.md의 점검표"
 experience_label = "내 경험"
-
-# 본인 네이버 블로그의 ID입니다. 비밀번호나 전체 URL을 입력하지 않습니다.
-[naver]
-blog_id = ""
