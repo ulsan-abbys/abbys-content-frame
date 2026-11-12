@@ -43,6 +43,38 @@ def count_naver_body(html: str) -> NaverCounts:
     return NaverCounts(**counts)
 
 
+def render_agent_instructions(draft: NaverDraft, html_uri: str) -> str:
+    """실행 브라우저 에이전트에 전달할 지시서를 I/O 없이 만듭니다."""
+    lines = [
+        "아래 순서만 따라 네이버 블로그 임시저장까지 진행해 줘. 발행은 절대 누르지 마.",
+        f"초안 위치: {html_uri}",
+        count_naver_body(draft.html).confirmation(),
+        "굵게가 문단 전체로 번지면 실패",
+        "로그인하지 말 것. 이미 로그인된 세션만 사용한다.",
+        "로그인 화면·캡차·CAPTCHA·보호조치·'과도한 접근' 화면이면 즉시 중단하고 화면 문구를 보고한다.",
+        "대리 로그인·자동 재시도·우회는 금지한다.",
+        "본문 타이핑 금지: 복사 버튼+Ctrl+V만 사용한다. HTML 소스 입력과 페이지 전체 복사도 금지한다.",
+        "다른 작업과 동시에 돌리지 말 것. 한 번에 한 편만 진행한다.",
+        "복사 실패·기능 부족 또는 기존 제목·본문이 있으면 덮어쓰지 말고 중단한다.",
+        "1) 초안을 열고 확인 숫자를 기록한다.",
+        "2) 네이버 블로그 글쓰기를 연다.",
+        "3) [본문 복사] 클릭 직후 복사 성공을 확인하고 편집기 본문 클릭→Ctrl+V.",
+        "4) 초안의 [제목 복사]→복사 성공 확인→제목 칸→Ctrl+V.",
+        "5) 제목·본문이 원문과 같은지, 소제목·목록 항목·굵게·링크 수와 굵기 번짐을 확인한다. "
+        "기대값/실제값을 보고하고, 다르거나 확인할 수 없으면 저장하지 말고 중단한다.",
+        "6) 임시저장만 한다. 발행은 절대 누르지 않는다.",
+        "7) 임시저장함에 제목이 보이는지 확인한다. 확인할 수 없으면 저장 성공으로 보고하지 않는다.",
+    ]
+    if draft.has_experience_slots:
+        slots = (draft.title + "\n" + draft.plain).count("[내 경험 — 발행 전에 직접 채우세요]")
+        lines.append(f"경험 칸 {slots}개는 비워 둔 채 저장한다 — 사람이 채운다")
+    lines.append(
+        "끝나면 사람이 개발자도구 Console에 `frame naver capture-script` 출력(사람이 붙여 줌)을 "
+        "실행해 결과 JSON을 확인 담당 사람에게 전달한다. 이 단계는 에이전트가 아니라 사람이 수행한다."
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _inline(text: str, label: str) -> tuple[str, str, bool]:
     slot = r"\[" + re.escape(label) + r"[^\]\n]*\]"
     token = re.compile(slot + r"|\*\*(.+?)\*\*|\[([^\]]+)\]\(([^\s)]+)\)|https?://[^\s<>]+")

@@ -5,8 +5,8 @@ import re
 import pytest
 from frame.cli import main
 from frame.config_loader import load_experience_label
-from frame.core.naver import NaverCounts, count_naver_body, markdown_to_naver
-from frame.adapters.naver_html import save_naver_html
+from frame.core.naver import NaverCounts, count_naver_body, markdown_to_naver, render_agent_instructions
+from frame.adapters.naver_html import save_agent_instructions, save_naver_html
 from frame.adapters.new_workspace import create_workspace
 
 
@@ -89,6 +89,59 @@ def test_cli_draft(workspace, capsys, monkeypatch):
     assert '확인: 제목 1 · 소제목 0 · 목록 0 · 굵게 1 · 링크 0' in output
     assert str(workspace.with_suffix('.naver.html')) in output
     assert '[내 경험 — 발행 전에 직접 채우세요]' in workspace.with_suffix('.naver.html').read_text(encoding='utf-8')
+    agent_path = workspace.with_suffix('.agent.txt')
+    assert f'[실행 지시서] 저장: {agent_path}' in output
+    instructions = agent_path.read_text(encoding='utf-8')
+    assert workspace.with_suffix('.naver.html').resolve().as_uri() in instructions
+    assert '경험 칸 1개는 비워 둔 채 저장한다 — 사람이 채운다' in instructions
+    for path in (agent_path, workspace.with_suffix('.naver.html')):
+        assert b'\r' not in path.read_bytes()
+
+
+@pytest.mark.parametrize('slots', [0, 1, 2])
+def test_agent_instructions(slots):
+    draft = markdown_to_naver(
+        '# 제목\n## 소제목\n**강조**\n- [링크](https://example.org)\n'
+        + '\n'.join('[체험 메모]' for _ in range(slots)), '체험',
+    )
+    uri = 'file:///C:/draft%20folder/%EC%B4%88%EC%95%88.naver.html'
+    text = render_agent_instructions(draft, uri)
+    assert text.splitlines()[0] == '아래 순서만 따라 네이버 블로그 임시저장까지 진행해 줘. 발행은 절대 누르지 마.'
+    assert uri in text
+    assert count_naver_body(draft.html).confirmation() in text
+    for phrase in (
+        '굵게가 문단 전체로 번지면 실패', '로그인하지 말 것', '이미 로그인된 세션만',
+        '로그인 화면', '캡차', '보호조치', "'과도한 접근'", '즉시 중단하고 화면 문구를 보고',
+        '본문 타이핑 금지', '복사 버튼+Ctrl+V만', '다른 작업과 동시에 돌리지 말 것', '한 번에 한 편',
+        '[본문 복사]', '[제목 복사]', '저장하지 말고 중단', '임시저장함에 제목이 보이는지',
+    ):
+        assert phrase in text
+    assert [line[:2] for line in text.splitlines() if re.match(r'\d\)', line)] == [f'{n})' for n in range(1, 8)]
+    if slots:
+        assert f'경험 칸 {slots}개는 비워 둔 채 저장한다 — 사람이 채운다' in text
+    else:
+        assert '경험 칸' not in text
+    assert '`frame naver capture-script` 출력(사람이 붙여 줌)' in text.splitlines()[-1]
+    assert '에이전트가 아니라 사람이 수행한다' in text.splitlines()[-1]
+
+
+def test_agent_file_uri_and_encoding(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    folder = Path('한글 공백')
+    folder.mkdir()
+    source = folder / '초안.md'
+    draft = markdown_to_naver('# 제목\n본문')
+    html_path = save_naver_html(source, draft)
+    path = save_agent_instructions(source, draft, html_path)
+    assert path == source.with_suffix('.agent.txt')
+    data = path.read_bytes()
+    text = data.decode('utf-8')
+    assert not data.startswith(b'\xef\xbb\xbf')
+    assert b'\r' not in data
+    uri = html_path.resolve().as_uri()
+    assert uri.startswith('file:///') and '%20' in uri and '%EC%B4%88' in uri
+    assert '\\' not in uri and '한글' not in uri
+    assert f'초안 위치: {uri}' in text
 
 
 @pytest.mark.parametrize('args', [['login'], ['draft', 'x.md', '--browser'], ['draft', 'x.md', '--blog-id', 'id'], ['draft', 'x.md', '--close']])

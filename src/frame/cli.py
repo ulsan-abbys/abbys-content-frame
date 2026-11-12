@@ -27,7 +27,7 @@ from frame.core.naver import count_naver_body, markdown_to_naver
 from frame.core.naver_capture import CAPTURE_SCRIPT
 from frame.core.naver_check import check_naver
 from frame.config_loader import load_experience_label
-from frame.adapters.naver_html import save_naver_html
+from frame.adapters.naver_html import save_agent_instructions, save_naver_html
 
 
 class KoreanParser(argparse.ArgumentParser):
@@ -141,7 +141,9 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
                     print(f"판정: {result['verdict']} — {summary}")
                 return 1 if result["verdict"] == "FAIL" else 0
             draft = markdown_to_naver(path.read_text(encoding="utf-8-sig"), label)
-            print(f"[HTML 변환] 저장: {save_naver_html(path, draft)}")
+            html_path = save_naver_html(path, draft)
+            print(f"[HTML 변환] 저장: {html_path}")
+            print(f"[실행 지시서] 저장: {save_agent_instructions(path, draft, html_path)}")
             print(count_naver_body(draft.html).confirmation())
             if draft.has_experience_slots:
                 print("경고: 경험 슬롯이 남아 있습니다. 발행 전에 직접 채우세요.")

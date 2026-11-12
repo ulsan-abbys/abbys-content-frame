@@ -3,7 +3,7 @@
 from html import escape
 from pathlib import Path
 
-from frame.core.naver import NaverDraft, count_naver_body
+from frame.core.naver import NaverDraft, count_naver_body, render_agent_instructions
 
 
 _COPY_UI = """
@@ -77,5 +77,16 @@ def save_naver_html(source: Path, draft: NaverDraft) -> Path:
         f'{count_naver_body(draft.html).confirmation()}</div></div>\n'
         f'<div id="frame-body">{draft.html}</div>\n{_COPY_SCRIPT}</body></html>\n',
         encoding="utf-8",
+        newline="\n",
+    )
+    return destination
+
+
+def save_agent_instructions(source: Path, draft: NaverDraft, html_path: Path) -> Path:
+    """HTML의 절대 URI를 담은 실행 지시서를 UTF-8·LF로 저장합니다."""
+    destination = source.with_suffix(".agent.txt")
+    destination.write_text(
+        render_agent_instructions(draft, html_path.resolve().as_uri()),
+        encoding="utf-8", newline="\n",
     )
     return destination
