@@ -57,6 +57,70 @@ def test_complete_without_slots_passes():
     assert check_naver(md, make_capture(md))["verdict"] == "PASS"
 
 
+def test_no_excessive_bold():
+    result = check_naver(MARKDOWN, make_capture())
+    assert statuses(result, "C4B") == ["PASS"]
+    assert next(i["message"] for i in result["items"] if i["code"] == "C4B") == "과다 굵게 없음"
+
+
+def test_bold_spread_fails():
+    capture = make_capture()
+    for block in capture["blocks"]:
+        block["fontWeight"] = 700
+    result = check_naver(MARKDOWN, capture)
+    assert statuses(result, "C4B") == ["FAIL"]
+    assert result["verdict"] == "FAIL"
+    assert next(i["message"] for i in result["items"] if i["code"] == "C4B") == "굵기 번짐: 본문 3개 중 3개가 굵게"
+
+
+@pytest.mark.parametrize("total,status", [(4, "FAIL"), (5, "WARN"), (6, "WARN")])
+def test_one_whole_bold_paragraph(total, status):
+    paragraphs = [f"본문 {i} " + "가나다라마바사아자차" * 4 for i in range(total)]
+    md = "# 제목\n\n" + "\n\n".join(paragraphs)
+    capture = make_capture(md)
+    capture["bolds"] = [paragraphs[0]]
+    result = check_naver(md, capture)
+    assert statuses(result, "C4B") == [status]
+    assert result["verdict"] == status
+    if status == "WARN":
+        assert next(i["message"] for i in result["items"] if i["code"] == "C4B") == (
+            "원고에 없는 굵은 문단 1개 · " + paragraphs[0][:30])
+
+
+@pytest.mark.parametrize("length,status", [(8, "PASS"), (9, "FAIL"), (10, "FAIL")])
+def test_bold_text_coverage(length, status):
+    md = "# 제목\n\n가나다라마바사아자차"
+    capture = make_capture(md)
+    capture["bolds"] = ["\u200b" + "가나다라마바사아자차"[:length] + "  "]
+    assert statuses(check_naver(md, capture), "C4B") == [status]
+
+
+@pytest.mark.parametrize("tag", ["h2", "p"])
+def test_bold_heading_is_excluded(tag):
+    md = "# 제목\n\n## 소제목"
+    capture = make_capture(md)
+    capture["blocks"][0]["tag"] = tag
+    assert statuses(check_naver(md, capture), "C4B") == ["PASS"]
+
+
+def test_fully_bold_paragraph_and_list_item_are_allowed():
+    md = "# 제목\n\n**전체** **굵게**\n\n- **목록 전체**\n\n[내 경험: 직접 작성]"
+    capture = make_capture(md)
+    for block in capture["blocks"]:
+        block["fontWeight"] = 700
+    capture["blocks"][1].update(text="• 목록 전체", bulletPrefix=True)
+    assert extract_expected(md).full_bold_blocks == extract_expected(md).body
+    assert statuses(check_naver(md, capture), "C4B") == ["PASS"]
+
+
+@pytest.mark.parametrize("weight,status", [(599, "PASS"), (600, "FAIL")])
+def test_body_weight_threshold(weight, status):
+    md = "# 제목\n\n일반 본문"
+    capture = make_capture(md)
+    capture["blocks"][0].update(tag="div", cls="se-text-paragraph", fontWeight=weight)
+    assert statuses(check_naver(md, capture), "C4B") == [status]
+
+
 @pytest.mark.parametrize("weight,status", [(700, "WARN"), (400, "FAIL")])
 def test_heading_loses_structure(weight, status):
     capture = make_capture()

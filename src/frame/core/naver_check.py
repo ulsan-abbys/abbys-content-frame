@@ -26,6 +26,7 @@ class Expected:
     headings: list[str] = field(default_factory=list)
     items: list[str] = field(default_factory=list)
     bolds: list[str] = field(default_factory=list)
+    full_bold_blocks: list[str] = field(default_factory=list)
     links: list[tuple[str, str]] = field(default_factory=list)
     paragraphs: list[str] = field(default_factory=list)
     body: list[str] = field(default_factory=list)
@@ -43,17 +44,22 @@ def extract_expected(markdown: str, experience_label: str = "내 경험") -> Exp
             self.stack = []
 
         def handle_starttag(self, tag, attrs):
-            self.stack.append((tag, dict(attrs), []))
+            self.stack.append((tag, dict(attrs), [], []))
 
         def handle_data(self, data):
-            for _, _, parts in self.stack:
+            bold = any(tag in ("strong", "b") for tag, _, _, _ in self.stack)
+            for _, _, parts, plain_parts in self.stack:
                 parts.append(data)
+                if not bold:
+                    plain_parts.append(data)
 
         def handle_endtag(self, tag):
-            current, attrs, parts = self.stack.pop()
+            current, attrs, parts, plain_parts = self.stack.pop()
             text = normalize("".join(parts))
             if current in ("p", "h2", "li"):
                 result.body.append(text)
+                if text and not normalize("".join(plain_parts)):
+                    result.full_bold_blocks.append(text)
             target = {"p": result.paragraphs, "h2": result.headings,
                       "li": result.items, "strong": result.bolds, "b": result.bolds}.get(current)
             if target is not None:
@@ -171,6 +177,25 @@ def check_naver(markdown: str, capture: dict, experience_label: str = "내 경�
     for bold in expected.bolds:
         good = any(bold in normalize(value) for value in capture["bolds"])
         add("C4", "PASS" if good else "FAIL", f"굵게 {'유지' if good else '없음'}: {bold}")
+    allowed_bold = set(expected.headings + expected.full_bold_blocks)
+    body_blocks = [(b, t) for b, t in zip(blocks, clean)
+                   if t and t not in allowed_bold
+                   and (b["tag"].lower() in ("p", "li")
+                        or "se-text-paragraph" in b["cls"].split()
+                        or b["inList"] or b["bulletPrefix"])]
+    captured_bolds = [normalize(value) for value in capture["bolds"]]
+    excessive = [t for b, t in body_blocks
+                 if b["fontWeight"] >= 600
+                 or any(t in bold or (bold in t and len(bold) >= len(t) * .9)
+                        for bold in captured_bolds)]
+    n, m = len(excessive), len(body_blocks)
+    if n == 0:
+        add("C4B", "PASS", "과다 굵게 없음")
+    elif n / m <= .2:
+        add("C4B", "WARN", f"원고에 없는 굵은 문단 {n}개 · "
+            + " / ".join(text[:30] for text in excessive[:3]))
+    else:
+        add("C4B", "FAIL", f"굵기 번짐: 본문 {m}개 중 {n}개가 굵게")
     for text, href in expected.links:
         matches = [link for link in capture["links"] if normalize_href(link["href"]) == normalize_href(href)]
         status = "PASS" if any(normalize(link["text"]) == text for link in matches) else "WARN" if matches else "FAIL"
