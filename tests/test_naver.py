@@ -3,6 +3,7 @@ from pathlib import Path
 from html.parser import HTMLParser
 import re
 import pytest
+from frame.core.naver_capture import CAPTURE_SCRIPT
 from frame.cli import main
 from frame.config_loader import load_experience_label
 from frame.core.naver import NaverCounts, count_naver_body, markdown_to_naver, render_agent_instructions
@@ -116,13 +117,31 @@ def test_agent_instructions(slots):
         '[본문 복사]', '[제목 복사]', '저장하지 말고 중단', '임시저장함에 제목이 보이는지',
     ):
         assert phrase in text
-    assert [line[:2] for line in text.splitlines() if re.match(r'\d\)', line)] == [f'{n})' for n in range(1, 8)]
+    assert [line[:2] for line in text.splitlines() if re.match(r'\d\)', line)] == [f'{n})' for n in range(1, 9)]
     if slots:
         assert f'경험 칸 {slots}개는 비워 둔 채 저장한다 — 사람이 채운다' in text
     else:
         assert '경험 칸' not in text
-    assert '`frame naver capture-script` 출력(사람이 붙여 줌)' in text.splitlines()[-1]
-    assert '에이전트가 아니라 사람이 수행한다' in text.splitlines()[-1]
+    assert "8) 임시저장 확인 후, 같은 글쓰기 화면에서 아래 읽기 전용 스크립트를 실행한다(페이지 내용을 바꾸지 않는다). 반환된 JSON 문자열을 답변 마지막에 ```json 블록으로 잘라내지 말고 그대로 붙인다. 실행할 수 없으면 '캡처 불가'와 이유를 적는다." in text
+    assert text.endswith(f"```js\n{CAPTURE_SCRIPT}\n```\n")
+    assert '사람이 수행' not in text
+    assert '2) 네이버 블로그 글쓰기를 연다.' in text
+
+
+@pytest.mark.parametrize('editor_url', [
+    'http://localhost:8080/editor.html?mode=draft&lang=ko',
+    'file:///C:/mock%20editor/editor.html',
+])
+def test_cli_draft_editor_url(workspace, editor_url):
+    assert main(['naver', 'draft', str(workspace), '--editor-url', editor_url]) == 0
+    data = workspace.with_suffix('.agent.txt').read_bytes()
+    text = data.decode('utf-8')
+    assert text.splitlines()[0] == f'아래 순서만 따라 편집기 {editor_url} 임시저장까지 진행해 줘. 발행은 절대 누르지 마.'
+    assert f'2) 편집기로 {editor_url}을 연다. 네이버는 열지 않는다.' in text
+    assert '2) 네이버 블로그 글쓰기를 연다.' not in text
+    assert text.endswith(f"```js\n{CAPTURE_SCRIPT}\n```\n")
+    assert '사람이 수행' not in text
+    assert b'\r' not in data
 
 
 def test_agent_file_uri_and_encoding(tmp_path, monkeypatch):

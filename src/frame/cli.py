@@ -93,6 +93,7 @@ def build_parser() -> argparse.ArgumentParser:
     naver_commands = naver.add_subparsers(dest="naver_command", required=True, title="네이버 명령")
     draft = naver_commands.add_parser("draft", help="초안 한 개를 HTML로 변환합니다.")
     draft.add_argument("md", metavar="초안.md", help="변환할 마크다운 파일")
+    draft.add_argument("--editor-url", metavar="URL", help="연습용 편집기 URL (생략하면 네이버 블로그)")
     naver_commands.add_parser("capture-script", help="읽기 전용 수집 코드를 출력합니다.")
     capture_check = naver_commands.add_parser("check", help="임시저장 캡처를 원고와 대조합니다.")
     capture_check.add_argument("md", metavar="초안.md", help="기대값을 생성할 원고")
@@ -143,7 +144,7 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
             draft = markdown_to_naver(path.read_text(encoding="utf-8-sig"), label)
             html_path = save_naver_html(path, draft)
             print(f"[HTML 변환] 저장: {html_path}")
-            print(f"[실행 지시서] 저장: {save_agent_instructions(path, draft, html_path)}")
+            print(f"[실행 지시서] 저장: {save_agent_instructions(path, draft, html_path, args.editor_url)}")
             print(count_naver_body(draft.html).confirmation())
             if draft.has_experience_slots:
                 print("경고: 경험 슬롯이 남아 있습니다. 발행 전에 직접 채우세요.")
