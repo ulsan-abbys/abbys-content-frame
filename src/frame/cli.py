@@ -1,6 +1,7 @@
 """설정·순수 도메인·입출력 포트를 연결하는 얇은 명령행 진입점."""
 
 import argparse
+import json
 import sys
 import time
 from datetime import datetime, timezone
@@ -23,6 +24,8 @@ from frame.core.pipeline import run_write_loop
 from frame.core.ports import GateLog, LLMWriter, PageFetcher, SourceJudge, VideoRenderer
 from frame.core.scoring import parse_draft, score_sources
 from frame.core.naver import count_naver_body, markdown_to_naver
+from frame.core.naver_capture import CAPTURE_SCRIPT
+from frame.core.naver_check import check_naver
 from frame.config_loader import load_experience_label
 from frame.adapters.naver_html import save_naver_html
 
@@ -90,6 +93,14 @@ def build_parser() -> argparse.ArgumentParser:
     naver_commands = naver.add_subparsers(dest="naver_command", required=True, title="네이버 명령")
     draft = naver_commands.add_parser("draft", help="초안 한 개를 HTML로 변환합니다.")
     draft.add_argument("md", metavar="초안.md", help="변환할 마크다운 파일")
+    naver_commands.add_parser("capture-script", help="읽기 전용 수집 코드를 출력합니다.")
+    capture_check = naver_commands.add_parser("check", help="임시저장 캡처를 원고와 대조합니다.")
+    capture_check.add_argument("md", metavar="초안.md", help="기대값을 생성할 원고")
+    capture_check.add_argument("capture", metavar="capture.json", help="수집 JSON 파일")
+    capture_check.add_argument("--stage", choices=("draft", "publish"), default="draft", help="점검 단계")
+    capture_check.add_argument("--json", action="store_true", help="판정 JSON 출력")
+    for sub in (draft, capture_check):
+        sub.add_argument("--label", help="경험 라벨 (기본: 작업 폴더 설정 또는 내 경험)")
     return parser
 
 
@@ -102,11 +113,33 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
         if hasattr(stream, "reconfigure"):
             stream.reconfigure(errors="replace")
     args = build_parser().parse_args(argv)
+    if args.command == "naver" and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     config_dir = Path(config_dir)
     try:
         if args.command == "naver":
+            if args.naver_command == "capture-script":
+                print(CAPTURE_SCRIPT)
+                return 0
             path = Path(args.md)
-            label = load_experience_label(path)
+            label = args.label if args.label is not None else load_experience_label(path)
+            if args.naver_command == "check":
+                capture = json.loads(Path(args.capture).read_text(encoding="utf-8-sig"))
+                if isinstance(capture, str):
+                    capture = json.loads(capture)
+                result = check_naver(path.read_text(encoding="utf-8-sig"), capture, label, args.stage)
+                if args.json:
+                    print(json.dumps(result, ensure_ascii=False))
+                else:
+                    icons = {"PASS": "✅", "WARN": "⚠", "FAIL": "❌"}
+                    for item in result["items"]:
+                        print(f"{icons[item['status']]} {item['code']} {item['message']}")
+                    counts = result["counts"]
+                    summary = " · ".join(f"{name} {counts[key]['matched']}/{counts[key]['total']}"
+                                         for key, name in (("headings", "소제목"), ("items", "목록"),
+                                                           ("bolds", "굵게"), ("links", "링크")))
+                    print(f"판정: {result['verdict']} — {summary}")
+                return 1 if result["verdict"] == "FAIL" else 0
             draft = markdown_to_naver(path.read_text(encoding="utf-8-sig"), label)
             print(f"[HTML 변환] 저장: {save_naver_html(path, draft)}")
             print(count_naver_body(draft.html).confirmation())
@@ -270,4 +303,4 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
     except (OSError, ValueError, RuntimeError, KeyError, TypeError) as exc:
         message = "작업을 진행할 수 없습니다." if args.command == "write" else "작업을 완료할 수 없습니다."
         print(f"오류: {message} {exc}")
-        return 2 if args.command == "score" else 1
+        return 2 if args.command == "score" or (args.command == "naver" and args.naver_command == "check") else 1

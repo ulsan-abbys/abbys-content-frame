@@ -111,6 +111,7 @@ uv run frame render .\대본.txt --out .\출력
 
 ```powershell
 uv run frame naver draft 작업실/초안/01_생활-정보.md
+uv run frame naver check 원고.md capture.json  # 임시저장 화면의 수집 JSON 대조
 ```
 
 HTML 파일 열기 → [본문 복사] → 편집기 본문 클릭 → Ctrl+V → [제목 복사] → 제목 칸 클릭 → Ctrl+V → 확인 개수 대조 → 임시저장 → 발행은 직접
