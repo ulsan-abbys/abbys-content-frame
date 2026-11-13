@@ -48,3 +48,14 @@ tolerance_seconds = 5
 genre = "생활 정보"
 checklist = "AGENTS.md의 점검표"
 experience_label = "내 경험"
+
+# 주제 설정 예시: frame setup topics로 질문에 답하면 내 프로필에 저장됩니다.
+# 아래 값은 예시이며 기본적으로 주제 설정 완료로 간주하지 않습니다.
+# [topics]
+# field = "생활"
+# region = "울산"
+# audience = "지역 생활 정보를 찾는 이웃"
+# seed_keywords = ["정리", "산책", "장보기"] # 3~10개
+# exclude = ["광고"] # 제외할 주제, 없으면 []
+# issue_sources = [] # 공식 사이트의 RSS 안내에서 직접 복사한 URL만 입력
+# cadence_per_week = 2 # 주당 글 수, 1 이상의 정수

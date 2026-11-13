@@ -50,6 +50,14 @@ uv run frame check tests\fixtures\bad.md
 
 ## AI에게 맡기기 / 실습 / 새 모듈 만들기
 
+처음 쓰는 사람은 `uv run frame setup topics`로 분야·독자·검색어를 저장하고,
+`uv run frame setup doctor`로 CLI·주제·API 키 준비 상태를 확인할 수 있습니다.
+작업 폴더의 프로필을 쓰면 두 명령에 `--profile my-blog/profile.toml`을 붙이세요.
+[API 키 발급 가이드](docs/API_키_발급_가이드.md)에 질문 입력, 키 발급과 환경 변수 설정을 안내합니다.
+주제 설정은 `[topics]`만 갱신하며 N1~N3 실행은 후속 구현 대상입니다.
+doctor는 기존 `select_engine`으로 엔진을 선택하고 API 키 없이 CLI 존재를 확인합니다.
+`--check-naver`를 지정할 때만 네이버 API에 한 번 요청하며, 테스트는 가짜 전송 구현을 사용합니다.
+
 | 하고 싶은 일 | 안내 |
 |---|---|
 | AI에게 설치·분야 변경·초안 점검 맡기기 | [AI에게 맡기기](docs/AI에게_맡기기.md) |

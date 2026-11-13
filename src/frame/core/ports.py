@@ -29,6 +29,10 @@ class TrendSource(Protocol):
     def fetch(self, region: str, keywords: list[str]) -> list[dict]: ...
 
 
+class NaverTransport(Protocol):
+    def post(self, url: str, headers: dict[str, str], body: bytes) -> int: ...
+
+
 class GateLog(Protocol):
     def append(self, d: GateDecision) -> None: ...
 

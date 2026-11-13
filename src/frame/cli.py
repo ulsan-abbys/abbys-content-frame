@@ -11,6 +11,8 @@ from frame.adapters.claude_cli import ClaudeCliWriter
 from frame.adapters.codex_cli import CodexCliWriter, CodexCliJudge
 from frame.adapters.engines import EngineUnavailable, select_engine
 from frame.adapters.new_workspace import create_workspace
+from frame.adapters.setup import ask_topics, doctor, save_topics
+from frame.core.ports import NaverTransport
 from frame.adapters.claude_judge import ClaudeCliJudge
 from frame.adapters.page_http import HttpPageFetcher
 from frame.adapters.jsonl_log import JsonlGateLog
@@ -52,6 +54,14 @@ class KoreanParser(argparse.ArgumentParser):
 def build_parser() -> argparse.ArgumentParser:
     parser = KoreanParser(prog="frame", description="블로그 초안과 영상 작업을 점검하는 공동 작업 틀")
     commands = parser.add_subparsers(dest="command", required=True, title="명령")
+    setup = commands.add_parser("setup", help="블로그 주제와 API 준비 상태를 설정·점검합니다.")
+    setup_commands = setup.add_subparsers(dest="setup_command", required=True, title="설정 명령")
+    topics = setup_commands.add_parser("topics", help="내 블로그의 분야·독자·검색어를 저장합니다.")
+    topics.add_argument("--from-json", metavar="파일", help="질문 대신 JSON 파일에서 주제 설정을 읽습니다.")
+    diagnostic = setup_commands.add_parser("doctor", help="엔진·주제·API 키의 준비 상태를 확인합니다.")
+    diagnostic.add_argument("--check-naver", action="store_true", help="네이버 데이터랩에 실제 요청을 한 번 보냅니다.")
+    for sub in (topics, diagnostic):
+        sub.add_argument("--profile", metavar="설정", help="프로필 TOML 경로 (기본: config/profile.toml)")
     check = commands.add_parser("check", help="초안의 분량과 표현을 점검합니다.")
     check.add_argument("md", metavar="초안", help="마크다운 파일 경로")
     check.add_argument("--profile", metavar="설정", help="프로필 TOML 경로")
@@ -108,6 +118,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
          renderer: VideoRenderer | None = None, gate_log: GateLog | None = None,
          fetcher: PageFetcher | None = None, judge: SourceJudge | None = None,
+         naver_transport: NaverTransport | None = None,
          config_dir: str | Path = "config") -> int:
     # Korean Windows consoles are cp949; page quotes may hold characters it cannot encode.
     for stream in (sys.stdout, sys.stderr):
@@ -118,6 +129,18 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
         sys.stdout.reconfigure(encoding="utf-8")
     config_dir = Path(config_dir)
     try:
+        if args.command == "setup":
+            path = Path(args.profile) if args.profile else config_dir / "profile.toml"
+            if args.setup_command == "doctor":
+                return doctor(path, check_naver=args.check_naver, transport=naver_transport)
+            try:
+                data = json.loads(Path(args.from_json).read_text(encoding="utf-8-sig")) if args.from_json else ask_topics()
+                save_topics(path, data, template=config_dir / "profile.example.toml")
+            except (EOFError, KeyboardInterrupt):
+                print("설정을 취소했습니다. 파일은 바꾸지 않았습니다.")
+                return 1
+            print(f"블로그 주제 설정을 저장했습니다: {path}")
+            return 0
         if args.command == "naver":
             if args.naver_command == "capture-script":
                 print(CAPTURE_SCRIPT)
