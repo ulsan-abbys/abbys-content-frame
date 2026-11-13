@@ -20,7 +20,7 @@ def topics():
 
 @pytest.fixture(autouse=True)
 def no_keys(monkeypatch):
-    for name in ("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"):
+    for name in ("NAVER_HUB_CLIENT_ID", "NAVER_HUB_CLIENT_SECRET", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET"):
         monkeypatch.delenv(name, raising=False)
 
 
@@ -104,7 +104,7 @@ def test_401_permission_and_keys_never_saved(topics, monkeypatch, tmp_path, caps
     monkeypatch.setenv("NAVER_CLIENT_SECRET", "test-only-secret")
     transport = Transport(401, {"errorCode": "024", "errorMessage": "test-only-secret"})
     status, _, note = fetch_demand(topics, transport)
-    assert status == "failed" and "권한이 없음 — 앱 Client ID 확인" in note
+    assert status == "failed" and "2026-07-31 이후 개발자센터 신규 신청 차단 — NAVER API HUB 키(NAVER_HUB_CLIENT_ID/SECRET)를 발급해 넣으세요. docs/API_키_발급_가이드.md" in note
     profile = tmp_path / "profile.toml"
     save_topics(profile, topics)
     class FailingWriter:
@@ -237,3 +237,57 @@ def test_transport_401_body_and_policy_denial(monkeypatch):
     assert not calls
     status, body = transport.request("POST", "https://openapi.naver.com/v1/datalab/search", {}, b"{}")
     assert status == 401 and json.loads(body)["errorCode"] == "024" and len(calls) == 1
+
+
+@pytest.mark.parametrize("hub_keys", [(), ("NAVER_HUB_CLIENT_ID",), ("NAVER_HUB_CLIENT_SECRET",),
+                                     ("NAVER_HUB_CLIENT_ID", "NAVER_HUB_CLIENT_SECRET")])
+def test_backend_selection_and_run_evidence(topics, monkeypatch, tmp_path, hub_keys):
+    from frame.adapters.setup import NAVER_HUB_URL, NAVER_URL
+    monkeypatch.setenv("NAVER_CLIENT_ID", "fake-legacy-id")
+    monkeypatch.setenv("NAVER_CLIENT_SECRET", "fake-legacy-secret")
+    for name in hub_keys:
+        monkeypatch.setenv(name, "fake-hub-" + name)
+    hub = len(hub_keys) == 2
+    backend = "NAVER API HUB" if hub else "개발자센터"
+    url = NAVER_HUB_URL if hub else NAVER_URL
+    transport = Transport()
+    path, state, _ = run_research(topics, tmp_path, Writer, transport)
+    call = next(c for c in transport.calls if c[0] == "POST")
+    assert call[1] == url
+    expected = ({"X-NCP-APIGW-API-KEY-ID": "fake-hub-NAVER_HUB_CLIENT_ID",
+                 "X-NCP-APIGW-API-KEY": "fake-hub-NAVER_HUB_CLIENT_SECRET"} if hub else
+                {"X-Naver-Client-Id": "fake-legacy-id", "X-Naver-Client-Secret": "fake-legacy-secret"})
+    assert call[2] == {**expected, "Content-Type": "application/json", "User-Agent": "abbys-content-frame/0.x"}
+    assert set(json.loads(call[3])) == {"startDate", "endDate", "timeUnit", "keywordGroups"}
+    record = state["nodes"]["N2"]
+    assert backend in record["note"]
+    output = json.loads((path.parent / record["output_path"]).read_text(encoding="utf-8"))
+    assert output[0]["backend"] == backend and output[0]["source"] == url
+    texts = "".join(p.read_text(encoding="utf-8") for p in tmp_path.iterdir())
+    assert all(value not in texts for value in expected.values())
+
+
+def test_hub_error_does_not_fallback_or_leak_keys(topics, monkeypatch, tmp_path):
+    from frame.adapters.setup import NAVER_KEY_NAMES
+    for name in NAVER_KEY_NAMES:
+        monkeypatch.setenv(name, "fake-value-" + name)
+    transport = Transport(401, {"errorCode": "024", "errorMessage": "fake-value-NAVER_HUB_CLIENT_SECRET"})
+    path, state, _ = run_research(topics, tmp_path, Writer, transport)
+    note = state["nodes"]["N2"]["note"]
+    assert "NAVER API HUB" in note and "HTTP 401" in note
+    assert "신규 신청 차단" not in note
+    assert len([c for c in transport.calls if c[0] == "POST"]) == 1
+    assert "fake-value-" not in path.read_text(encoding="utf-8")
+
+
+def test_hub_keys_redacted_from_writer_output(topics, monkeypatch, tmp_path):
+    monkeypatch.setenv("NAVER_HUB_CLIENT_ID", "fake-hub-id")
+    monkeypatch.setenv("NAVER_HUB_CLIENT_SECRET", "fake-hub-secret")
+    class EchoWriter:
+        def write(self, *args):
+            value = candidate()
+            value["title"] = "fake-hub-id fake-hub-secret"
+            return json.dumps([value])
+    _, _, candidates = run_research(topics, tmp_path, EchoWriter, Transport())
+    assert candidates and candidates[0]["title"] == "[비공개] [비공개]"
+    assert all("fake-hub-" not in p.read_text(encoding="utf-8") for p in tmp_path.iterdir())

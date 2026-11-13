@@ -15,6 +15,28 @@ from frame.core.ports import NaverTransport
 GUIDE = "docs/API_키_발급_가이드.md"
 NAVER_URL = "https://openapi.naver.com/v1/datalab/search"
 
+NAVER_HUB_URL = "https://naverapihub.apigw.ntruss.com/search-trend/v1/search"
+NAVER_KEY_NAMES = ("NAVER_HUB_CLIENT_ID", "NAVER_HUB_CLIENT_SECRET",
+                   "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET")
+NAVER_MIGRATION_NOTE = (
+    "2026-07-31 이후 개발자센터 신규 신청 차단 — NAVER API HUB 키(NAVER_HUB_CLIENT_ID/SECRET)를 발급해 넣으세요. "
+    + GUIDE
+)
+
+
+def naver_connection() -> tuple[str, str, dict[str, str]] | None:
+    """완전한 HUB 키 쌍을 우선하고, 없으면 기존 개발자센터 키 쌍을 선택합니다."""
+    for backend, url, names, header_names in (
+        ("NAVER API HUB", NAVER_HUB_URL, NAVER_KEY_NAMES[:2],
+         ("X-NCP-APIGW-API-KEY-ID", "X-NCP-APIGW-API-KEY")),
+        ("개발자센터", NAVER_URL, NAVER_KEY_NAMES[2:],
+         ("X-Naver-Client-Id", "X-Naver-Client-Secret")),
+    ):
+        values = [os.environ.get(name) for name in names]
+        if all(values):
+            return backend, url, {**dict(zip(header_names, values)), "Content-Type": "application/json"}
+    return None
+
 
 def validate_topics(data: object) -> dict:
     if not isinstance(data, dict):
@@ -153,23 +175,25 @@ def doctor(path: Path, *, check_naver: bool = False,
         row("프로필 [topics]", "준비됨")
     except (OSError, ValueError):
         row("프로필 [topics]", "미완료", f'frame setup topics --profile "{path}"를 실행하세요')
-    for name in ("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "DATA_GO_KR_SERVICE_KEY"):
+    for name in (*NAVER_KEY_NAMES, "DATA_GO_KR_SERVICE_KEY"):
         optional = name == "DATA_GO_KR_SERVICE_KEY"
-        row(name + (" (선택)" if optional else ""), "있음" if os.environ.get(name) else "없음",
+        label = "선택" if optional else ("권장" if name.startswith("NAVER_HUB_") else "유예(2027-06-30까지)")
+        row(f"{name} ({label})", "있음" if os.environ.get(name) else "없음",
             "없음" if os.environ.get(name) else
             ("기상특보가 필요하면 서비스키를 발급받아 환경 변수에 저장하세요" if optional else
-             "네이버 내 애플리케이션에서 발급값을 환경 변수에 저장하세요"))
+             "NAVER API HUB 인증 정보를 환경 변수에 저장하세요"))
     if check_naver:
-        if not all(os.environ.get(key) for key in ("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET")):
-            row("네이버 연결", "건너뜀", "NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 먼저 설정하세요")
+        connection = naver_connection()
+        if connection is None:
+            row("네이버 연결", "건너뜀", "NAVER_HUB_CLIENT_ID와 NAVER_HUB_CLIENT_SECRET을 먼저 설정하세요")
         else:
             body = json.dumps({"startDate": "2024-01-01", "endDate": "2024-01-02", "timeUnit": "date",
                                "keywordGroups": [{"groupName": "생활", "keywords": ["생활"]}]}).encode("utf-8")
-            headers = {"X-Naver-Client-Id": os.environ["NAVER_CLIENT_ID"],
-                       "X-Naver-Client-Secret": os.environ["NAVER_CLIENT_SECRET"],
-                       "Content-Type": "application/json", "User-Agent": "abbys-content-frame/setup-doctor"}
+            backend, url, headers = connection
+            headers["User-Agent"] = "abbys-content-frame/setup-doctor"
+            row("네이버 백엔드", backend)
             try:
-                status = (transport if transport is not None else HttpNaverTransport()).post(NAVER_URL, headers, body)
+                status = (transport if transport is not None else HttpNaverTransport()).post(url, headers, body)
                 row("네이버 연결", "OK" if status == 200 else f"HTTP {status}",
                     "없음" if status == 200 else "내 애플리케이션의 키·API 권한·호출 한도를 확인하세요")
             except (OSError, ValueError, HTTPException):

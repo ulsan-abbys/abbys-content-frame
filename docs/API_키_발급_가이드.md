@@ -45,28 +45,47 @@ frame setup topics --from-json topics.json
 |---|---|
 | AI 엔진 | API 키 없음. Claude Code 또는 Codex CLI 중 하나를 설치하고 구독 계정으로 로그인 |
 | N1 이슈 수집 | 직접 붙여 넣은 RSS에는 키 없음. 기상특보를 쓸 때만 공공데이터포털 서비스키 선택 |
-| N2 검색 수요 | 네이버 데이터랩 검색어트렌드의 Client ID와 Client Secret |
+| N2 검색 수요 | NAVER API HUB 검색어 트렌드의 Client ID와 Client Secret (권장) |
 | N3 주제 후보 / N4 리서치·출처 | 별도 API 키 없음. AI를 쓸 때는 위 엔진 로그인 필요 |
 
 `frame setup doctor`는 CLI가 PATH(명령을 찾는 위치)에 있는지만 확인합니다. 로그인 완료나 구독 상태를 검사하지 않습니다. 사용할 CLI를 직접 실행해서 로그인하세요. 엔진 선택에는 기존 `select_engine`을 사용합니다. `FRAME_ENGINE`이 없으면 claude, codex 순으로 찾습니다. 둘 중 하나만 있으면 됩니다.
 
 ## 3. 네이버 열쇠 두 개 발급받기
 
-1. [네이버 개발자센터](https://developers.naver.com)에 본인 네이버 계정으로 로그인합니다.
-2. 위쪽 **Application → 애플리케이션 등록**을 엽니다. 처음 등록할 때는 약관 동의와 **휴대폰 인증**이 필요합니다.
-3. 이름을 40자 이내로 입력합니다. 예: `내 생활 블로그 조사`.
-4. **사용 API → 데이터랩(검색어트렌드)**를 선택합니다. 검색 API도 사용할 계획이면 **검색**을 추가합니다. 검색 API는 선택 사항입니다.
-5. **비로그인 오픈 API 서비스 환경 → WEB**을 선택하고 주소에 `http://localhost`를 입력합니다. 내 컴퓨터에서 쓸 설정입니다.
-6. 등록을 마친 뒤 **Application → 내 애플리케이션 → 방금 만든 이름**을 엽니다.
-7. **Client ID**와 **Client Secret**을 확인합니다. 아래 환경 변수 설정에서 각각 따로 사용합니다.
+### 권장: NAVER Cloud Platform의 NAVER API HUB
 
-등록한 계정은 애플리케이션 관리자입니다. 계정을 안전하게 보호하고 키가 보이는 화면을 공유하지 마세요. 등록 절차와 권한은 [네이버 공식 등록 안내](https://developers.naver.com/docs/common/openapiguide/appregister.md)를 참고하세요.
+**2026-11 기준 안내, 화면이 다르면 화면을 따르세요.**
 
-데이터랩 검색어트렌드는 **하루 1,000회** 호출 제한이 있습니다. 결과는 **0~100의 상대 지수**이며 실제 검색 횟수가 아닙니다. 요청한 범위에서 가장 큰 값을 100으로 놓으므로 서로 다른 요청의 수치를 실제 검색량처럼 비교하지 마세요. [네이버 검색어트렌드 공식 문서](https://developers.naver.com/docs/serviceapi/datalab/search/search.md)
+1. [NCP 콘솔](https://console.ncloud.com)에 본인 계정으로 로그인합니다.
+2. **Menu → All Services → Application Services → NAVER API HUB**를 엽니다.
+3. **Subscription**에서 **서비스 이용 신청**을 하고 약관에 동의합니다.
+4. **Application 등록**에서 **Data Lab 검색어 트렌드**를 선택합니다.
+5. **API 관리 → 인증 정보**에서 **Client ID / Client Secret**을 확인합니다.
+6. 각각 `NAVER_HUB_CLIENT_ID`, `NAVER_HUB_CLIENT_SECRET` 환경 변수에 저장합니다.
 
-### 이미 네이버 앱이 있다면
+요금·결제수단 등록 여부는 콘솔의 요금 화면에서 직접 확인하세요.
 
-이미 네이버 앱이 있으면 새로 만들지 말고 API 설정에 **데이터랩(검색어트렌드)**만 추가하세요. **401/024**가 나오면 저장한 Client ID가 그 앱의 것인지 확인하세요. `frame research`는 “이 키의 앱에 데이터랩(검색어트렌드) 권한이 없음 — 앱 Client ID 확인”을 기록합니다. 키 값과 오류 응답 원문은 기록하지 않습니다.
+N2는 `POST https://naverapihub.apigw.ntruss.com/search-trend/v1/search`에
+`X-NCP-APIGW-API-KEY-ID`, `X-NCP-APIGW-API-KEY` 인증 헤더로 요청합니다.
+요청 본문은 기존 데이터랩과 같은 `startDate`, `endDate`, `timeUnit`, `keywordGroups`입니다.
+결과는 **0~100의 상대 지수**이며 실제 검색 횟수가 아닙니다. 요청 범위에서 가장 큰 값을 100으로 놓으므로 서로 다른 요청의 수치를 실제 검색량처럼 비교하지 마세요.
+[NAVER API HUB 검색어 트렌드 공식 문서](https://api.ncloud-docs.com/docs/naver-api-hub-search-trend)
+
+### 기존 개발자센터: 이미 7/31 이전에 신청한 키만, 2027-06-30까지
+
+2026-07-31부터 개발자센터의 검색 API·데이터랩 검색어트렌드·쇼핑인사이트 신규 신청이 차단되었으며 NAVER API HUB로 이전합니다.
+기존 키의 유예 기한은 **2027-06-30**입니다.
+[개발자센터 공식 공지](https://developers.naver.com/notice/article/32530)
+
+7/31 이전에 해당 API를 신청한 키만 기존 `NAVER_CLIENT_ID`, `NAVER_CLIENT_SECRET` 환경 변수로 사용하세요.
+기존 앱이라도 차단 이후 데이터랩을 추가한 경우 HTTP 401 / 오류 코드 024 (`Scope Status Invalid`)가 발생할 수 있습니다(2026-11-14 실측).
+이때 N2 실행 기록에는 다음 안내를 남깁니다.
+
+> 2026-07-31 이후 개발자센터 신규 신청 차단 — NAVER API HUB 키(NAVER_HUB_CLIENT_ID/SECRET)를 발급해 넣으세요. docs/API_키_발급_가이드.md
+
+HUB 키 두 개가 모두 있으면 HUB를 우선 사용합니다. 완전한 HUB 키 쌍이 없을 때만 기존 개발자센터 키 쌍으로 요청합니다.
+선택한 백엔드는 N2 결과의 `backend`·`source`와 실행 기록의 `note`에 남습니다.
+HUB 요청이 실패해도 개발자센터로 자동 재시도하지 않습니다. 키 값과 오류 응답 원문은 기록하지 않습니다.
 
 ## 4. 기상특보 서비스키 발급받기 (선택)
 
@@ -85,8 +104,8 @@ frame setup topics --from-json topics.json
 ### Windows PowerShell
 
 ```powershell
-setx NAVER_CLIENT_ID "발급받은_Client_ID"
-setx NAVER_CLIENT_SECRET "발급받은_Client_Secret"
+setx NAVER_HUB_CLIENT_ID "발급받은_Client_ID"
+setx NAVER_HUB_CLIENT_SECRET "발급받은_Client_Secret"
 # 기상특보를 쓸 때만 실행합니다.
 setx DATA_GO_KR_SERVICE_KEY "발급받은_서비스키"
 ```
@@ -98,8 +117,8 @@ setx DATA_GO_KR_SERVICE_KEY "발급받은_서비스키"
 터미널에서 `nano ~/.zshrc`를 실행하고 파일 끝에 다음 줄을 추가합니다. `Ctrl+O`, Enter로 저장하고 `Ctrl+X`로 나옵니다.
 
 ```sh
-export NAVER_CLIENT_ID='발급받은_Client_ID'
-export NAVER_CLIENT_SECRET='발급받은_Client_Secret'
+export NAVER_HUB_CLIENT_ID='발급받은_Client_ID'
+export NAVER_HUB_CLIENT_SECRET='발급받은_Client_Secret'
 # 기상특보를 쓸 때만 추가합니다.
 export DATA_GO_KR_SERVICE_KEY='발급받은_서비스키'
 ```
@@ -120,4 +139,4 @@ frame setup doctor
 frame setup doctor --check-naver
 ```
 
-키 두 개가 있으면 네이버 공식 API에 작은 요청을 **한 번** 보내므로 호출 한도를 사용합니다. `OK`는 HTTP 200 응답을 받았다는 뜻입니다. `HTTP 401`은 키를 다시 확인하고, `HTTP 403`은 사용 API 권한을 확인하세요. `HTTP 429`는 호출 한도를 확인하세요. 연결 실패는 인터넷 상태를 확인하세요. 키가 없으면 요청을 건너뜁니다. 오류의 응답 본문이나 키는 출력하지 않습니다.
+완전한 키 쌍이 있으면 HUB 우선으로 네이버 공식 API에 작은 요청을 **한 번** 보냅니다. 사용 요금은 콘솔에서 확인하세요. `OK`는 HTTP 200 응답을 받았다는 뜻입니다. `HTTP 401`은 키와 신청 상태를 확인하고(개발자센터는 위 이전 안내 참고), `HTTP 403`은 사용 API 권한을 확인하세요. `HTTP 429`는 호출 한도를 확인하세요. 연결 실패는 인터넷 상태를 확인하세요. 키가 없으면 요청을 건너뜁니다. 오류의 응답 본문이나 키는 출력하지 않습니다.

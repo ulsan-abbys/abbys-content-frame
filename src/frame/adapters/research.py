@@ -11,7 +11,7 @@ from urllib.request import Request, build_opener
 import xml.etree.ElementTree as ET
 
 from frame.adapters.crawl_http import can_fetch
-from frame.adapters.setup import GUIDE, NAVER_URL, NoRedirect
+from frame.adapters.setup import GUIDE, NAVER_KEY_NAMES, NAVER_MIGRATION_NOTE, NoRedirect, naver_connection
 from frame.core.ports import LLMWriter, ResearchTransport
 from frame.core.research import render_topics, topic_prompt, validate_candidates
 
@@ -84,28 +84,28 @@ def fetch_issues(topics: dict, transport: ResearchTransport) -> tuple[str, list,
 
 
 def fetch_demand(topics: dict, transport: ResearchTransport, *, today: date | None = None) -> tuple[str, list, str]:
-    client_id, secret = os.environ.get("NAVER_CLIENT_ID"), os.environ.get("NAVER_CLIENT_SECRET")
-    if not client_id or not secret:
-        return "skipped", [], f"NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 환경 변수에 설정하세요. {GUIDE}"
+    connection = naver_connection()
+    if connection is None:
+        return "skipped", [], f"NAVER_HUB_CLIENT_ID와 NAVER_HUB_CLIENT_SECRET(권장) 또는 NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 환경 변수에 설정하세요. {GUIDE}"
+    backend, url, headers = connection
     end = today or date.today()
     start = end - timedelta(weeks=12) + timedelta(days=1)
     keywords = list(dict.fromkeys(topics["seed_keywords"]))[:5]
     payload = {"startDate": start.isoformat(), "endDate": end.isoformat(), "timeUnit": "week",
                "keywordGroups": [{"groupName": k, "keywords": [k]} for k in keywords]}
-    headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": secret,
-               "Content-Type": "application/json", "User-Agent": USER_AGENT}
-    status, body = transport.request("POST", NAVER_URL, headers, json.dumps(payload).encode("utf-8"))
+    headers["User-Agent"] = USER_AGENT
+    status, body = transport.request("POST", url, headers, json.dumps(payload).encode("utf-8"))
     if status != 200:
         if status == 401:
             try:
                 code = json.loads(body).get("errorCode")
             except (ValueError, AttributeError):
                 code = None
-            note = ("이 키의 앱에 데이터랩(검색어트렌드) 권한이 없음 — 앱 Client ID 확인"
-                    if str(code) == "024" else "네이버 인증 실패 — 앱 Client ID와 Client Secret 확인")
+            note = (NAVER_MIGRATION_NOTE
+                    if backend == "개발자센터" and str(code) == "024" else "네이버 인증 실패 — 앱 Client ID와 Client Secret 확인")
         else:
             note = "네이버 데이터랩 요청 실패 — API 권한·호출 한도·연결을 확인하세요"
-        return "failed", [], f"HTTP {status}: {note}"
+        return "failed", [], f"백엔드: {backend}. HTTP {status}: {note}"
     response = json.loads(body)
     items = []
     for result in response["results"]:
@@ -123,14 +123,14 @@ def fetch_demand(topics: dict, transport: ResearchTransport, *, today: date | No
         items.append({"keyword": result["title"],
                       "ratio": [{"period": p["period"], "ratio": p["ratio"]} for p in series],
                       "period": {"start": start.isoformat(), "end": end.isoformat()},
-                      "unit": "상대지수(0~100)", "source": NAVER_URL, "fetched_at": timestamp()})
-    return "done", items, f"검색어 {len(items)}개. 상대지수이며 실제 검색 횟수가 아닙니다."
+                      "unit": "상대지수(0~100)", "source": url, "backend": backend, "fetched_at": timestamp()})
+    return "done", items, f"백엔드: {backend}. 검색어 {len(items)}개. 상대지수이며 실제 검색 횟수가 아닙니다."
 
 
 def run_research(topics: dict | None, out: Path, writer_factory: Callable[[], LLMWriter],
                  transport: ResearchTransport, *, resume: Path | None = None,
                  skip: str | None = None) -> tuple[Path, dict, list]:
-    secrets = [os.environ.get(k, "") for k in ("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET")]
+    secrets = [os.environ.get(k, "") for k in NAVER_KEY_NAMES]
 
     def redact(text):
         for secret in secrets:
@@ -203,6 +203,10 @@ def run_research(topics: dict | None, out: Path, writer_factory: Callable[[], LL
             record.update(status="failed", note=(
                 "AI 엔진 실행 또는 JSON 검증 실패 — Claude Code/Codex CLI 설치·로그인과 응답을 확인하세요."
                 if node == "N3" else "자료 요청 또는 응답 처리 실패 — 연결과 자료 형식을 확인하세요."))
+        if node == "N2" and record["status"] != "skipped" and "백엔드:" not in record["note"]:
+            connection = naver_connection()
+            if connection is not None:
+                record["note"] = f"백엔드: {connection[0]}. " + record["note"]
         record["finished_at"] = timestamp()
         save(run_path, state)
     return run_path, clean(state), outputs["N3"]

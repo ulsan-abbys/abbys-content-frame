@@ -20,7 +20,7 @@ def topics():
 
 @pytest.fixture(autouse=True)
 def isolated(monkeypatch):
-    for key in ("FRAME_ENGINE", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "DATA_GO_KR_SERVICE_KEY"):
+    for key in ("FRAME_ENGINE", "NAVER_HUB_CLIENT_ID", "NAVER_HUB_CLIENT_SECRET", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "DATA_GO_KR_SERVICE_KEY"):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setattr("frame.adapters.engines.shutil.which", lambda name: None)
 
@@ -128,7 +128,7 @@ def test_interactive_cancel_leaves_no_file(tmp_path, monkeypatch):
 @pytest.mark.parametrize("present", [False, True])
 def test_doctor_env_never_prints_values(tmp_path, topics, monkeypatch, capsys, present):
     values = {key: f"fake-test-only-{index}" for index, key in enumerate(
-        ("NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "DATA_GO_KR_SERVICE_KEY"))}
+        ("NAVER_HUB_CLIENT_ID", "NAVER_HUB_CLIENT_SECRET", "NAVER_CLIENT_ID", "NAVER_CLIENT_SECRET", "DATA_GO_KR_SERVICE_KEY"))}
     if present:
         for key, value in values.items():
             monkeypatch.setenv(key, value)
@@ -138,7 +138,7 @@ def test_doctor_env_never_prints_values(tmp_path, topics, monkeypatch, capsys, p
     for key, value in values.items():
         assert key in output
         assert value not in output
-    assert ("NAVER_CLIENT_ID | 있음" if present else "NAVER_CLIENT_ID | 없음") in output
+    assert ("NAVER_CLIENT_ID (유예(2027-06-30까지)) | 있음" if present else "NAVER_CLIENT_ID (유예(2027-06-30까지)) | 없음") in output
     assert ("프로필 [topics] | 준비됨" if present else "프로필 [topics] | 미완료") in output
     assert setup.GUIDE in output
 
@@ -230,3 +230,30 @@ def test_http_transport_posts_once_without_redirects(monkeypatch, status):
     assert len(calls) == 1
     assert calls[0].get_method() == "POST"
     assert calls[0].data == b"{}"
+
+
+@pytest.mark.parametrize("present", [False, True])
+def test_doctor_hub_rows_and_preferred_request(tmp_path, monkeypatch, capsys, present):
+    for name in setup.NAVER_KEY_NAMES[2:]:
+        monkeypatch.setenv(name, "fake-legacy-" + name)
+    if present:
+        for name in setup.NAVER_KEY_NAMES[:2]:
+            monkeypatch.setenv(name, "fake-hub-" + name)
+    calls = []
+    class FakeTransport:
+        def post(self, url, headers, body):
+            calls.append((url, headers))
+            return 200
+    assert setup.doctor(tmp_path / "missing.toml", check_naver=True, transport=FakeTransport()) == 0
+    output = capsys.readouterr().out
+    for name in setup.NAVER_KEY_NAMES[:2]:
+        assert f"{name} (권장) | {'있음' if present else '없음'}" in output
+    for name in setup.NAVER_KEY_NAMES[2:]:
+        assert f"{name} (유예(2027-06-30까지)) | 있음" in output
+    assert len(calls) == 1
+    assert calls[0][0] == (setup.NAVER_HUB_URL if present else setup.NAVER_URL)
+    if present:
+        assert calls[0][1]["X-NCP-APIGW-API-KEY-ID"] == "fake-hub-NAVER_HUB_CLIENT_ID"
+        assert calls[0][1]["X-NCP-APIGW-API-KEY"] == "fake-hub-NAVER_HUB_CLIENT_SECRET"
+        assert "X-Naver-Client-Id" not in calls[0][1]
+    assert "fake-hub-" not in output and "fake-legacy-" not in output
