@@ -107,7 +107,14 @@ def test_agent_instructions(slots):
     )
     uri = 'file:///C:/draft%20folder/%EC%B4%88%EC%95%88.naver.html'
     text = render_agent_instructions(draft, uri)
-    assert text.splitlines()[0] == '아래 순서만 따라 네이버 블로그 임시저장까지 진행해 줘. 발행은 절대 누르지 마.'
+    assert '기본은 임시저장' in text.splitlines()[0]
+    assert '공개 발행을 명시 승인했다면 발행 결과 확인까지' in text.splitlines()[0]
+    assert '이 지시서 자체는 게시 승인이 아니다' in text
+    assert '없으면 임시저장으로 끝낸다' in text
+    assert '승인 여부와 무관하게 발행하지 않는다' in text
+    assert '중복 발행하지 않는다' in text
+    assert '미작성 경험 슬롯·확인 필요 문구' in text
+    assert '발행된 게시물 URL' in text
     assert uri in text
     assert count_naver_body(draft.html).confirmation() in text
     for phrase in (
@@ -123,7 +130,7 @@ def test_agent_instructions(slots):
     else:
         assert '경험 칸' not in text
     assert "8) 임시저장 확인 후, 같은 글쓰기 화면에서 아래 읽기 전용 스크립트를 실행한다(페이지 내용을 바꾸지 않는다). 반환된 JSON 문자열을 답변 마지막에 ```json 블록으로 잘라내지 말고 그대로 붙인다. 실행할 수 없으면 '캡처 불가'와 이유를 적는다." in text
-    assert text.endswith(f"```js\n{CAPTURE_SCRIPT}\n```\n")
+    assert f"```js\n{CAPTURE_SCRIPT}\n```\n" in text
     assert '사람이 수행' not in text
     assert '2) 네이버 블로그 글쓰기를 연다.' in text
 

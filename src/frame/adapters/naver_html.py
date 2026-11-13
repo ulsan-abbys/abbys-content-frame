@@ -15,7 +15,7 @@ _COPY_UI = """
 </style>
 <div id="frame-bar">
 <div>붙여넣기 순서: 1. [본문 복사] → 2. 편집기 본문 클릭 → Ctrl+V →
-3. [제목 복사] → 제목 칸 클릭 → Ctrl+V → 4. 서식 확인 → 임시저장 (발행은 사람)</div>
+3. [제목 복사] → 제목 칸 클릭 → Ctrl+V → 4. 서식 확인 → 임시저장 (명시 승인한 글은 에이전트 발행 가능)</div>
 <button id="copy-body" type="button">본문 복사</button>
 <button id="copy-title" type="button">제목 복사</button>
 <span id="copy-status" role="status" aria-live="polite"></span>

@@ -150,7 +150,7 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
                 print("경고: 경험 슬롯이 남아 있습니다. 발행 전에 직접 채우세요.")
             if not draft.title or not draft.plain.strip():
                 raise ValueError("초안에 '# 제목'과 비어 있지 않은 본문이 필요합니다.")
-            print("HTML 파일 열기 → [본문 복사] → 편집기 본문 클릭 → Ctrl+V → [제목 복사] → 제목 칸 클릭 → Ctrl+V → 확인 개수 대조 → 임시저장 → 발행은 직접")
+            print("HTML 파일 열기 → [본문 복사] → 편집기 본문 클릭 → Ctrl+V → [제목 복사] → 제목 칸 클릭 → Ctrl+V → 서식 확인 → 임시저장; 공개 발행을 명시 승인한 글은 실행 지시서의 조건에 따라 발행·게시물 URL 확인까지")
             return 0
         if args.command == "new":
             create_workspace(args.workdir, config_dir / "profile.example.toml",
