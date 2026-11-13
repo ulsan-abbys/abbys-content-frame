@@ -24,6 +24,12 @@ def _read(path: str | Path) -> dict:
         return tomllib.load(stream)
 
 
+def load_topics(path: str | Path) -> dict:
+    from frame.adapters.setup import validate_topics
+
+    return validate_topics(_read(path).get("topics"))
+
+
 def load_profile(path: str | Path | None = None) -> tuple[DraftSpec, dict, list[str], dict]:
     if path is None:
         custom = Path("config/profile.toml")

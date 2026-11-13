@@ -113,6 +113,21 @@ uv run frame render .\대본.txt --out .\출력
 
 `frame write`는 `--topic`이 없으면 선택한 엔진에 `STATE.md 보고 지금 하는 일을 이어서 해줘.`를 전달합니다. 이어 하기의 기존 설정은 Claude `acceptEdits`, Codex `workspace-write`입니다. 파일 수정이 필요한 이어 하기는 claude 엔진을 권장합니다. Windows Codex 샌드박스에서는 쓰기가 제한될 수 있습니다. 프롬프트는 두 엔진 모두 표준 입력으로 전달합니다. Codex CLI 0.167.0의 로컬 도움말에서 `exec`, `-s`, `-C`, `--output-last-message`, 표준 입력 `-`를 확인했습니다. Codex 작성은 `-c web_search=live`로 웹 검색을 켜며, 판정은 임시 폴더에서 `read-only`와 `web_search=disabled`를 사용합니다. 웹 검색 모드는 [공식 설정 문서](https://learn.chatgpt.com/docs/config-file/config-reference)를 따릅니다. 마지막 응답은 `--output-last-message` 파일에서 받습니다. 영상 렌더링용 로컬 소재·음성·글꼴은 `MoneyPrinterTurboRenderer` 어댑터 설정으로 교체합니다.
 
+## 주제 조사와 G1 검토
+
+```powershell
+uv run frame setup topics
+uv run frame research --profile config/profile.toml --engine auto --out runs/
+uv run frame research --resume runs/20261114-120000.json --engine codex
+uv run frame research --skip N2
+```
+
+`research`는 `[topics]`의 N1 RSS/Atom → N2 네이버 데이터랩 → N3 AI 후보 생성을 실행합니다. 엔진 기본값은 `auto`이며 claude → codex 순으로 선택합니다. N1은 씨앗 검색어 또는 지역과 일치하는 항목을 링크로 중복 제거합니다. 기존 robots·수집 금지 호스트 정책을 적용하고(robots 확인 요청은 피드 요청과 별도), 각 피드는 10초 제한으로 한 번만 GET하며 리다이렉트·재시도는 하지 않습니다. 출처가 없으면 건너뜁니다. N2는 환경 변수의 네이버 키로 최근 12주, 최대 5개 검색어의 주간 상대지수(0~100)를 받습니다. 실제 검색 횟수가 아닙니다.
+
+노드별 상태·시작/종료 시각·결과 경로·메모는 `runs/<YYYYMMDD-HHMMSS>.json`, 근거와 후보 JSON은 같은 이름의 `.N1.json`, `.N2.json`, `.N3.json`에 저장합니다. `--resume`은 저장된 주제 설정과 결과를 사용하고 done 노드를 재실행하지 않습니다. failed·skipped 노드는 다시 시도하므로 N2를 계속 생략하려면 `--skip N2`를 함께 사용하세요. 같은 초의 새 실행은 기존 기록을 덮어쓰지 않고 실패합니다.
+
+후보 수는 주당 글 수의 2배(최대 6개)입니다. 수집된 링크 또는 검색어를 인용하지 않거나 제외 주제 문자열이 제목·독자 상황·선정 이유에 포함되면 제거합니다. 의미상 제외 여부와 근거의 실제 적합성은 사람이 확인해야 합니다. `runs/<실행번호>.topics.md`에서 G1을 검토한 뒤 출력된 `frame write --topic "선택한 제목" .`의 마지막 `.`을 작업 폴더로 바꾸어 실행하세요. 키 미설정은 skipped, 요청·엔진 실패나 유효 후보 없음은 failed이며 하나라도 failed면 종료 코드 1입니다. G1 승인이나 게시를 자동으로 수행하지 않습니다.
+
 ## 네이버 블로그 임시저장
 
 `frame naver draft`는 로컬 HTML 파일만 만듭니다. 별도 브라우저 의존성이나 블로그 ID 설정은 필요하지 않습니다.
@@ -164,7 +179,7 @@ uv run frame gate status
 
 ## 함께 고치는 법
 
-버그·개선 제안·모듈 카드 Issue로 문제와 기대 결과를 먼저 공유합니다. 개선 방향은 Discussions 또는 모임에서 정하고, fork → 작업 브랜치 → PR로 제안합니다. N1·N2는 비어 있으므로 공식 데이터 수집을 맡을 사람을 모집합니다.
+버그·개선 제안·모듈 카드 Issue로 문제와 기대 결과를 먼저 공유합니다. 개선 방향은 Discussions 또는 모임에서 정하고, fork → 작업 브랜치 → PR로 제안합니다. N1~N3는 `frame research`로 실행하며 공식 데이터 수집과 후보 검증 개선을 받습니다.
 
 PR에는 변경한 동작을 확인하는 테스트가 필수입니다. 규칙을 추가하면 허용·차단 예시를 함께 넣고, 어댑터를 바꾸면 테스트가 네트워크나 외부 프로그램 없이 돌아가도록 가짜 구현을 사용합니다. 모듈을 맡으면 카드의 입력·출력·끝 기준·상태를 갱신하고 결과를 공유합니다.
 

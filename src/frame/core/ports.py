@@ -33,6 +33,11 @@ class NaverTransport(Protocol):
     def post(self, url: str, headers: dict[str, str], body: bytes) -> int: ...
 
 
+class ResearchTransport(Protocol):
+    def request(self, method: str, url: str, headers: dict[str, str],
+                body: bytes | None = None) -> tuple[int, bytes]: ...
+
+
 class GateLog(Protocol):
     def append(self, d: GateDecision) -> None: ...
 

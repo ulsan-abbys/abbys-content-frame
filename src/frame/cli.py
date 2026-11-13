@@ -12,6 +12,9 @@ from frame.adapters.codex_cli import CodexCliWriter, CodexCliJudge
 from frame.adapters.engines import EngineUnavailable, select_engine
 from frame.adapters.new_workspace import create_workspace
 from frame.adapters.setup import ask_topics, doctor, save_topics
+from frame.adapters.research import HttpResearchTransport, run_research
+from frame.core.ports import ResearchTransport
+from frame.config_loader import load_topics
 from frame.core.ports import NaverTransport
 from frame.adapters.claude_judge import ClaudeCliJudge
 from frame.adapters.page_http import HttpPageFetcher
@@ -54,6 +57,12 @@ class KoreanParser(argparse.ArgumentParser):
 def build_parser() -> argparse.ArgumentParser:
     parser = KoreanParser(prog="frame", description="블로그 초안과 영상 작업을 점검하는 공동 작업 틀")
     commands = parser.add_subparsers(dest="command", required=True, title="명령")
+    research = commands.add_parser("research", help="N1~N3 사전 조사 후 G1 주제 후보를 저장합니다.")
+    research.add_argument("--profile", metavar="설정", help="주제 프로필 (기본: config/profile.toml)")
+    research.add_argument("--engine", choices=("auto", "claude", "codex"), default="auto", help="후보 생성 엔진")
+    research.add_argument("--out", default="runs", metavar="폴더", help="조사 결과 폴더")
+    research.add_argument("--resume", metavar="실행파일", help="완료 노드를 건너뛰고 저장된 조사 재개")
+    research.add_argument("--skip", choices=("N2",), help="검색 수요 노드를 건너뜁니다.")
     setup = commands.add_parser("setup", help="블로그 주제와 API 준비 상태를 설정·점검합니다.")
     setup_commands = setup.add_subparsers(dest="setup_command", required=True, title="설정 명령")
     topics = setup_commands.add_parser("topics", help="내 블로그의 분야·독자·검색어를 저장합니다.")
@@ -119,6 +128,7 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
          renderer: VideoRenderer | None = None, gate_log: GateLog | None = None,
          fetcher: PageFetcher | None = None, judge: SourceJudge | None = None,
          naver_transport: NaverTransport | None = None,
+         research_transport: ResearchTransport | None = None,
          config_dir: str | Path = "config") -> int:
     # Korean Windows consoles are cp949; page quotes may hold characters it cannot encode.
     for stream in (sys.stdout, sys.stderr):
@@ -129,6 +139,31 @@ def main(argv: list[str] | None = None, *, writer: LLMWriter | None = None,
         sys.stdout.reconfigure(encoding="utf-8")
     config_dir = Path(config_dir)
     try:
+        if args.command == "research":
+            def research_writer():
+                if writer is not None:
+                    return writer
+                engine = select_engine(args.engine)
+                return CodexCliWriter() if engine == "codex" else ClaudeCliWriter(allowed_tools=())
+
+            try:
+                topics = None if args.resume else load_topics(Path(args.profile) if args.profile else config_dir / "profile.toml")
+                path, state, candidates = run_research(
+                    topics, Path(args.out), research_writer,
+                    research_transport if research_transport is not None else HttpResearchTransport(),
+                    resume=Path(args.resume) if args.resume else None, skip=args.skip)
+            except (OSError, ValueError, KeyError, TypeError):
+                print("조사를 시작할 수 없습니다. frame setup topics 설정 또는 재개 파일·결과 경로를 확인하세요.")
+                return 1
+            print(f"조사 기록: {path}")
+            for node, record in state["nodes"].items():
+                print(f"{node}: {record['status']} — {record['note']}")
+            if candidates:
+                print(f"G1 검토 문서: {path.with_suffix('.topics.md')}")
+                print("사람이 주제를 승인한 뒤 실행하세요 (마지막 .은 작업 폴더로 바꾸세요):")
+                title = candidates[0]["title"].replace('"', '').replace('\n', ' ').replace('\r', ' ')
+                print(f'frame write --topic "{title}" .')
+            return 1 if any(r["status"] == "failed" for r in state["nodes"].values()) else 0
         if args.command == "setup":
             path = Path(args.profile) if args.profile else config_dir / "profile.toml"
             if args.setup_command == "doctor":
