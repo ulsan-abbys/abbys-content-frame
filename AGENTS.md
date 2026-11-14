@@ -1,3 +1,14 @@
+## Codex 실행 순서 (블로그)
+
+1. 저장소 루트에서 `uv run frame setup doctor`를 실행하라. Git·uv가 없으면 설치를 안내하고, Codex CLI가 PATH에 없으면 설치·사용자 직접 로그인을 안내한 뒤 다시 점검하라. 앱 설치만으로 CLI 준비를 가정하지 마라.
+2. `uv run frame setup topics`로 필요한 주제 정보만 물어라. 대화에서 받은 답은 UTF-8 JSON으로 저장해 `uv run frame setup topics --from-json topics.json`으로 입력해도 된다. 기존 설정은 재사용하라.
+3. 선택적으로 `uv run frame research --engine codex`를 실행하라. N1은 설정된 RSS, N2는 NAVER API HUB 키가 있을 때 사용한다. 키가 없으면 생략하고 조사 실패를 성공으로 취급하지 마라. **G1: 후보를 보여 주고 사용자 선택을 기다려라.** 조사 생략 시에도 선택받아라.
+4. 작업폴더가 없을 때만 `uv run frame new <dir> --field "<분야>" --name "<화자>" --region "<지역>"`를 실행하라. 꺾쇠 자리표시는 실제 값으로 바꾸고 기존 폴더는 덮어쓰지 마라. 확인한 말투·독자 설정을 작업폴더 프로필에 반영하라.
+5. `uv run frame write <dir> --topic "<chosen>" --engine codex` 후 출력된 초안 경로로 `uv run frame check <md> --profile <dir>/profile.toml`을 실행하라. 실패를 수정·재검사하고 **G2: 실제 경험·사실·출처를 사람이 채우고 검수할 때까지 멈춰라.** 경험을 만들지 마라.
+6. 검수 후 `uv run frame naver draft <md>`를 실행하라. 별도 터미널의 초안 폴더에서 `python -m http.server 8770 --bind 127.0.0.1`을 실행하라. Python 명령이 없으면 저장소의 uv 가상환경 Python을 사용하라. 브라우저 에이전트는 `file://`를 열 수 없으므로 생성된 `.agent.txt`의 HTML 주소를 `http://127.0.0.1:8770/<파일명>.naver.html`로 바꾸고 접속을 확인하라.
+7. 생성된 `.agent.txt`를 읽고 사용자가 Codex에 연결한 브라우저 도구 하나로 실행하라. 도구가 없거나 필요한 기능이 없으면 연결 안내 또는 직접 붙여넣기로 인계하라. 기존 로그인 세션만 쓰고 로그인·캡차·보호조치에서는 즉시 중단하라.
+8. 기본은 **임시저장**이다. G3 게시 승인은 사람만 한다. 사용자가 이 글·대상 블로그의 공개 발행을 명시 승인한 경우에만 Codex가 브라우저로 발행하라. 이미 받은 승인은 반복해서 묻지 마라. 임시저장은 저장 표시·목록 제목과 편집기 본문을 확인하고 편집기 URL을 보고하라. 발행은 실제 게시물 URL을 다시 열어 제목·본문·출처 링크를 확인하고 보고하라. 결과가 불명확하면 중복 클릭하지 마라. 작업 후 서버를 종료하라.
+
 # 이 저장소의 AI 작업 규칙
 
 - Python 3.11 이상과 표준 라이브러리만 런타임에 사용합니다. 개발 의존성은 pytest입니다.

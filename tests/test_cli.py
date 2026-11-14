@@ -33,7 +33,7 @@ def test_invalid_gate_does_not_write(tmp_path):
 
 def test_graph_prints_human(capsys):
     assert main(["graph"], config_dir=CONFIG) == 0
-    assert "G3 게시 클릭: 항상 사람" in capsys.readouterr().out
+    assert "G3 게시 승인: 항상 사람" in capsys.readouterr().out
 
 
 def test_write_with_fake(capsys):

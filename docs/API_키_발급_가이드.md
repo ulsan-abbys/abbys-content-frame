@@ -48,7 +48,7 @@ frame setup topics --from-json topics.json
 | N2 검색 수요 | NAVER API HUB 검색어 트렌드의 Client ID와 Client Secret (권장) |
 | N3 주제 후보 / N4 리서치·출처 | 별도 API 키 없음. AI를 쓸 때는 위 엔진 로그인 필요 |
 
-`frame setup doctor`는 CLI가 PATH(명령을 찾는 위치)에 있는지만 확인합니다. 로그인 완료나 구독 상태를 검사하지 않습니다. 사용할 CLI를 직접 실행해서 로그인하세요. 엔진 선택에는 기존 `select_engine`을 사용합니다. `FRAME_ENGINE`이 없으면 claude, codex 순으로 찾습니다. 둘 중 하나만 있으면 됩니다.
+`frame setup doctor`는 CLI가 PATH(명령을 찾는 위치)에 있는지만 확인합니다. 로그인 완료나 구독 상태를 검사하지 않습니다. 사용할 CLI를 직접 실행해서 로그인하세요. 엔진 선택에는 기존 `select_engine`을 사용합니다. `FRAME_ENGINE`이 없으면 codex, claude 순으로 찾습니다. 둘 중 하나만 있으면 됩니다.
 
 ## 3. 네이버 열쇠 두 개 발급받기
 

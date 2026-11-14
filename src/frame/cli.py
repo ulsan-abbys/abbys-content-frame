@@ -99,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     write.add_argument("--profile", metavar="설정", help="프로필 TOML 경로")
     for command in (write, score):
         command.add_argument("--engine", choices=("auto", "claude", "codex"),
-                             help="AI 엔진 (기본: FRAME_ENGINE 또는 auto, claude → codex 순)")
+                             help="AI 엔진 (기본: FRAME_ENGINE 또는 auto, codex → claude 순)")
     new = commands.add_parser("new", help="일반 블로그 작업 폴더를 만듭니다.")
     new.add_argument("workdir", metavar="폴더", help="새로 만들 작업 폴더")
     new.add_argument("--field", default="생활", help="글의 분야")

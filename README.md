@@ -11,7 +11,7 @@ N1 이슈 수집
   -> N5 초안
   -> N6 기계 점검 -- 실패 --> N5 (최대 2회)
   -> [G2 경험·사실 검수]
-       +-> N7 서식·이미지 -> N8 게시 준비 -> [G3 게시 클릭: 항상 사람]
+       +-> N7 서식·이미지 -> N8 게시 준비 -> [G3 게시 승인: 사람 (승인 후 Codex가 브라우저 도구로 실행·URL 확인)]
        +-> V1 대본 추출 -> [G4 대본 낭독]
              -> V2 렌더링 -> V3 영상 점검 -> [G5 업로드 클릭: 항상 사람]
 ```
@@ -19,6 +19,25 @@ N1 이슈 수집
 이 그림의 정본은 `config/graph.toml`입니다. `auto`는 자동화할 수 있는 노드라는 뜻이며, 전체 흐름을 실행하는 엔진은 아직 없습니다. 현재 제공하는 것은 초안 점검, 관문 기록·단계 계산, 그래프 표시, 외부 도구 호출입니다. `frame write --topic`은 초안 작성 뒤 계층 0 점검과 계층 1 출처 채점을 실행하고, 실패하면 기본 최대 2회 고쳐 쓴 뒤 G2 사람 검수로 넘깁니다. 노드별 실제 상태는 `modules/`에서 확인합니다.
 
 ## 5분 시작
+
+### Codex로 바로 시작 (권장)
+
+1. Codex 앱 또는 CLI 설치 후 로그인하세요.
+2. [uv](https://docs.astral.sh/uv/)와 Git을 설치하세요.
+3. 터미널에서 저장소를 받으세요.
+
+```powershell
+git clone https://github.com/ulsan-abbys/abbys-content-frame
+```
+
+4. 받은 `abbys-content-frame` 폴더를 Codex에서 여세요.
+5. [prompts/codex_시작.md](prompts/codex_시작.md)의 내용 전체를 Codex에 붙여 넣으세요.
+
+Codex가 준비 점검부터 주제 선택·초안·검수·네이버 임시저장까지 안내합니다. `frame write --engine codex`에는 PATH의 Codex CLI가 필요하므로 앱만 설치했다면 doctor 결과에 따라 CLI를 준비하세요. 브라우저 작업에는 사용자가 Codex에 연결한 도구가 필요합니다. [처음부터 끝까지 따라 하기](docs/Codex로_네이버_발행.md)를 참고하세요.
+
+Claude Code도 `--engine claude`로 글쓰기 엔진을 사용할 수 있습니다. **게시 실행 표준은 Codex**이며 기본은 임시저장, 공개 발행은 해당 글·블로그에 대한 명시적 승인 후에만 실행합니다.
+
+### 직접 실행
 
 필요한 것은 Git, [uv](https://docs.astral.sh/uv/), **Claude Code 또는 Codex CLI 중 하나(설치 후 로그인 필요)**입니다. 초안 작성·점검·사람 확인까지 1편 약 10분을 예상하세요. 주제와 출처에 따라 더 걸릴 수 있습니다. 파이썬은 uv가 알아서 받습니다. 아무것도 없는 노트북이라면 [abbys-ai-setup의 새 노트북 세팅](https://github.com/ulsan-abbys/abbys-ai-setup/blob/main/docs/새_노트북_세팅.md)부터 따라 하세요.
 
@@ -54,7 +73,7 @@ uv run frame check tests\fixtures\bad.md
 `uv run frame setup doctor`로 CLI·주제·API 키 준비 상태를 확인할 수 있습니다.
 작업 폴더의 프로필을 쓰면 두 명령에 `--profile my-blog/profile.toml`을 붙이세요.
 [API 키 발급 가이드](docs/API_키_발급_가이드.md)에 질문 입력, 키 발급과 환경 변수 설정을 안내합니다.
-주제 설정은 `[topics]`만 갱신하며 N1~N3 실행은 후속 구현 대상입니다.
+주제 설정은 `[topics]`만 갱신하며 N1~N3는 선택적으로 `frame research`로 실행합니다.
 doctor는 기존 `select_engine`으로 엔진을 선택하고 API 키 없이 CLI 존재를 확인합니다.
 `--check-naver`를 지정할 때만 네이버 API에 한 번 요청하며, 테스트는 가짜 전송 구현을 사용합니다.
 
@@ -109,7 +128,7 @@ $env:MPT_DIR = "./tools/MoneyPrinterTurbo"
 uv run frame render .\대본.txt --out .\출력
 ```
 
-`write`와 `score`의 엔진 우선순위는 `--engine` → `FRAME_ENGINE` → `auto`입니다. `auto`는 PATH에서 claude → codex 순으로 첫 번째를 선택하며 첫 줄에 엔진 이름을 출력합니다. 실행 실패 후 다른 엔진으로 자동 재시도하지 않습니다. 둘 다 없으면 설치·로그인 안내와 종료코드 2를 반환합니다.
+`write`와 `score`의 엔진 우선순위는 `--engine` → `FRAME_ENGINE` → `auto`입니다. `auto`는 PATH에서 codex → claude 순으로 첫 번째를 선택하며 첫 줄에 엔진 이름을 출력합니다. 실행 실패 후 다른 엔진으로 자동 재시도하지 않습니다. 둘 다 없으면 설치·로그인 안내와 종료코드 2를 반환합니다.
 
 `frame write`는 `--topic`이 없으면 선택한 엔진에 `STATE.md 보고 지금 하는 일을 이어서 해줘.`를 전달합니다. 이어 하기의 기존 설정은 Claude `acceptEdits`, Codex `workspace-write`입니다. 파일 수정이 필요한 이어 하기는 claude 엔진을 권장합니다. Windows Codex 샌드박스에서는 쓰기가 제한될 수 있습니다. 프롬프트는 두 엔진 모두 표준 입력으로 전달합니다. Codex CLI 0.167.0의 로컬 도움말에서 `exec`, `-s`, `-C`, `--output-last-message`, 표준 입력 `-`를 확인했습니다. Codex 작성은 `-c web_search=live`로 웹 검색을 켜며, 판정은 임시 폴더에서 `read-only`와 `web_search=disabled`를 사용합니다. 웹 검색 모드는 [공식 설정 문서](https://learn.chatgpt.com/docs/config-file/config-reference)를 따릅니다. 마지막 응답은 `--output-last-message` 파일에서 받습니다. 영상 렌더링용 로컬 소재·음성·글꼴은 `MoneyPrinterTurboRenderer` 어댑터 설정으로 교체합니다.
 
@@ -122,7 +141,7 @@ uv run frame research --resume runs/20261114-120000.json --engine codex
 uv run frame research --skip N2
 ```
 
-`research`는 `[topics]`의 N1 RSS/Atom → N2 네이버 데이터랩 → N3 AI 후보 생성을 실행합니다. 엔진 기본값은 `auto`이며 claude → codex 순으로 선택합니다. N1은 씨앗 검색어 또는 지역과 일치하는 항목을 링크로 중복 제거합니다. 기존 robots·수집 금지 호스트 정책을 적용하고(robots 확인 요청은 피드 요청과 별도), 각 피드는 10초 제한으로 한 번만 GET하며 리다이렉트·재시도는 하지 않습니다. 출처가 없으면 건너뜁니다. N2는 환경 변수의 네이버 키로 최근 12주, 최대 5개 검색어의 주간 상대지수(0~100)를 받습니다. 실제 검색 횟수가 아닙니다.
+`research`는 `[topics]`의 N1 RSS/Atom → N2 네이버 데이터랩 → N3 AI 후보 생성을 실행합니다. 엔진 기본값은 `auto`이며 codex → claude 순으로 선택합니다. N1은 씨앗 검색어 또는 지역과 일치하는 항목을 링크로 중복 제거합니다. 기존 robots·수집 금지 호스트 정책을 적용하고(robots 확인 요청은 피드 요청과 별도), 각 피드는 10초 제한으로 한 번만 GET하며 리다이렉트·재시도는 하지 않습니다. 출처가 없으면 건너뜁니다. N2는 환경 변수의 네이버 키로 최근 12주, 최대 5개 검색어의 주간 상대지수(0~100)를 받습니다. 실제 검색 횟수가 아닙니다.
 
 노드별 상태·시작/종료 시각·결과 경로·메모는 `runs/<YYYYMMDD-HHMMSS>.json`, 근거와 후보 JSON은 같은 이름의 `.N1.json`, `.N2.json`, `.N3.json`에 저장합니다. `--resume`은 저장된 주제 설정과 결과를 사용하고 done 노드를 재실행하지 않습니다. failed·skipped 노드는 다시 시도하므로 N2를 계속 생략하려면 `--skip N2`를 함께 사용하세요. 같은 초의 새 실행은 기존 기록을 덮어쓰지 않고 실패합니다.
 
@@ -137,7 +156,7 @@ uv run frame naver draft 작업실/초안/01_생활-정보.md
 uv run frame naver check 원고.md capture.json  # 임시저장 화면의 수집 JSON 대조
 ```
 
-HTML 파일 열기 → [본문 복사] → 편집기 본문 클릭 → Ctrl+V → [제목 복사] → 제목 칸 클릭 → Ctrl+V → 확인 개수 대조 → 임시저장 → 발행은 직접
+HTML 파일 열기 → [본문 복사] → 편집기 본문 클릭 → Ctrl+V → [제목 복사] → 제목 칸 클릭 → Ctrl+V → 확인 개수 대조 → 임시저장 → 공개 발행은 사람 승인 후 Codex 실행 또는 직접 실행
 
 출력된 `초안.naver.html`을 사용하세요. 제목은 본문에서 제외되며 복사 버튼으로 각각 옮깁니다. 안내 바는 복사되지 않습니다.
 점검표는 제외하고 경험 슬롯은 굵게 표시하며 경고합니다. 작업폴더 `profile.toml`의 `[writing] experience_label`도 적용합니다.
@@ -161,13 +180,13 @@ HTML 파일 열기 → [본문 복사] → 편집기 본문 클릭 → Ctrl+V �
 | L0 | 매번 | 기본 단계, 사람이 결과를 직접 확인 |
 | L1 | 실행 번호가 3의 배수일 때 | 세 번 중 한 번 표본 검토 |
 | L2 | 생략 가능 | 누적 이력을 바탕으로 검토 자동화 |
-| HUMAN_ONLY | 항상 | 게시·업로드 클릭은 자동화하지 않음 |
+| HUMAN_ONLY | 항상 | CLI는 승인을 스스로 생성하지 않음. G3 승인 후 Codex 브라우저 실행 가능 |
 
 관문별 기록 중 마지막 기계 누락 이후의 최근 10건을 봅니다. 10건이 쌓였고 그중 `approved`가 9건 이상이며 기계 누락이 한 번도 없으면 한 단계 승급합니다. 창은 이동하며 같은 기록을 포함할 수 있고 승급 후 새 10건을 기다리는 방식은 아닙니다. `edited`와 `rejected`는 승인 수에 포함하지 않습니다. 가장 최근 기록에서 `missed_by_machine`이 참이면 즉시 L0로 강등하고, 이후 새 기록을 모읍니다.
 
-G1 주제 승인과 G4 대본 낭독은 L0에서 시작해 최대 L2까지, G2 경험·사실 검수는 최대 L1까지 올라갑니다. G3 게시 클릭과 G5 업로드 클릭은 `HUMAN_ONLY`로 고정합니다. 현재 단계 계산과 기록은 검토를 돕는 도구이며 실제 게시·업로드를 실행하지 않습니다.
+G1 주제 승인과 G4 대본 낭독은 L0에서 시작해 최대 L2까지, G2 경험·사실 검수는 최대 L1까지 올라갑니다. G3 게시 승인과 G5 업로드 클릭은 `HUMAN_ONLY`로 고정합니다. 현재 단계 계산과 기록은 검토를 돕는 도구이며 실제 게시·업로드를 실행하지 않습니다.
 
-2026-11-14 개정: `HUMAN_ONLY`는 CLI가 게시 승인을 스스로 생성하지 않는다는 의미입니다. 사용자가 대상 글·블로그의 공개 발행을 명시 승인했다면 별도 브라우저 에이전트가 발행 조작을 수행하고 게시물 URL·본문까지 검증할 수 있습니다. 기본은 임시저장이며 `.agent.txt` 생성 자체는 승인이 아닙니다. 미작성 경험 슬롯·확인 필요 문구가 남으면 발행하지 않습니다. Claude/Codex와 브라우저 도구는 교체 가능하고 Aside는 필수가 아닙니다. [실행 조건](docs/브라우저_에이전트에게_맡기기.md)을 따릅니다.
+2026-11-14 D22 결정: `HUMAN_ONLY`는 CLI가 게시 승인을 스스로 생성하지 않는다는 의미입니다. 사용자가 대상 글·블로그의 공개 발행을 명시 승인했다면 별도 브라우저 에이전트가 발행 조작을 수행하고 게시물 URL·본문까지 검증할 수 있습니다. 기본은 임시저장이며 `.agent.txt` 생성 자체는 승인이 아닙니다. 미작성 경험 슬롯·확인 필요 문구가 남으면 발행하지 않습니다. 글쓰기 엔진은 Codex/Claude를 선택할 수 있고 게시 실행 표준은 Codex입니다. 브라우저 도구는 사용자가 연결한 것을 쓰며 Aside는 필수가 아닙니다. [실행 조건](docs/브라우저_에이전트에게_맡기기.md)을 따릅니다.
 
 ```powershell
 uv run frame gate record --gate G2 --decision approved --run-id "연습-001" --note "출처와 경험을 직접 확인"

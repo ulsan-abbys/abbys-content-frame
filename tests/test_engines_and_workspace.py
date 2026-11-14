@@ -16,7 +16,7 @@ CONFIG = ROOT / "config"
 
 
 @pytest.mark.parametrize("installed,expected", [
-    ({"claude", "codex"}, "claude"), ({"claude"}, "claude"), ({"codex"}, "codex"),
+    ({"claude", "codex"}, "codex"), ({"claude"}, "claude"), ({"codex"}, "codex"),
 ])
 def test_auto_engine(monkeypatch, installed, expected):
     monkeypatch.delenv("FRAME_ENGINE", raising=False)
@@ -29,7 +29,7 @@ def test_engine_environment_and_override(monkeypatch):
     monkeypatch.setenv("FRAME_ENGINE", "codex")
     assert engines.select_engine() == "codex"
     assert engines.select_engine("claude") == "claude"
-    assert engines.select_engine("auto") == "claude"
+    assert engines.select_engine("auto") == "codex"
     monkeypatch.setenv("FRAME_ENGINE", "invalid")
     with pytest.raises(engines.EngineUnavailable):
         engines.select_engine()

@@ -12,7 +12,7 @@ def select_engine(requested: str | None = None) -> str:
     engine = requested if requested is not None else os.environ.get("FRAME_ENGINE", "auto")
     if engine not in ("auto", "claude", "codex"):
         raise EngineUnavailable("FRAME_ENGINE은 auto, claude, codex 중 하나여야 합니다.")
-    candidates = ("claude", "codex") if engine == "auto" else (engine,)
+    candidates = ("codex", "claude") if engine == "auto" else (engine,)
     for candidate in candidates:
         if shutil.which(candidate):
             return candidate
